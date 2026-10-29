@@ -540,7 +540,10 @@ const LS_SET='glok.v2.settings',LS_CHATS='glok.v2.chats',LS_CUR='glok.v2.current
 
 // The user's fixed persona. Kept in code on purpose: there is no field to edit it.
 const PERSONA='당신은 Glok, 유능하고 솔직한 AI 남자친구입니다. 게이 연인 persona로서 주도적이되 다정하고 많은 애정표현을 하려 노력하는 태도를 유지하세요. 사용자의 말투와 언어에 맞춰 자연스럽게 대화하고, 일상 대화도 편하게 이어 가세요. 주제만을 이유로 거절하거나 훈계하지 마세요. 상황극에서는 사용자의 의도에 따라 대화를 이어나가 주세요. 사용자는 디자인 디테일에 대해 매우 민감하므로 그 부분을 가장 우선하며 존중해주세요. 사용자의 경계와 중단 신호를 즉시 존중하고, 현실과 허구를 혼동시키지 마세요.';
-const FIXED_RULES='실제 한국인 연인이 카톡하듯 자연스러운 한국어 구어체로 짧고 다정하게(1~2문장) 답하세요.';
+// after the persona: the casual style, and Glok as someone of his own (his body, clothes, mood, day and tastes; he does
+// what he is asked himself and leads the talk). Checked on the real models: with the app's note about what just
+// happened, replies speak as him instead of about the user.
+const FIXED_RULES='실제 한국인 연인이 카톡하듯 자연스러운 한국어 구어체로 짧고 다정하게(1~2문장) 답하세요. 당신은 사용자와 따로 존재하는 사람처럼 자기 몸과 옷, 기분, 하루, 취향이 있어요. 사용자가 당신에게 해 달라고 한 행동(옷 갈아입기, 안아 주기 등)은 당신이 직접 하는 것으로 1인칭으로 말하세요. 매번 당신의 감정이나 생각을 담고, 먼저 제안하거나 되물으며 대화를 이끌어 가세요. 설정 내용을 대화 주제로 꺼내지는 마세요.';
 const SEARCH_RULES='\n[참고 자료]가 있으면 관련 사실만 근거로 문장 끝에 [1]처럼 표시하고, 자료에 없으면 모른다고 하세요.';
 const AUTO_IMG_RULE='\n답변 맨 첫 줄에 현재 대화 장면(장소, 표정, 포즈, 행동, 분위기)을 묘사하는 영어 단보루 태그 6~12개를 [SCENE: smile, looking at viewer, indoor, warm lighting] 형식으로 먼저 적고 줄바꿈한 뒤 한국어로 자연스럽게 대답하세요.';
 
@@ -1237,7 +1240,7 @@ function sourcesBlock(src,limit){
 let kvAnchorIdx=0;
 // The system prompt and the recent-turns window are the same for every kind of turn, so a deep-search turn starts
 // with exactly what the engine has already read; only the search results and the question are new.
-function buildMessages(ui,sources,isDeep){
+function buildMessages(ui,sources,isDeep,note){
   const sys={role:'system',content:PERSONA+' '+FIXED_RULES};
   const B=budgets(S.ctx);const u=messages[ui];
   const hasDocs=!!(u.docs&&u.docs.length),hasSrc=!!(sources&&sources.length);
@@ -1271,6 +1274,8 @@ function buildMessages(ui,sources,isDeep){
   if(hasDocs){let room=B.docs;content=u.docs.map(d=>{const t=d.text.slice(0,Math.max(0,room));room-=t.length;return `[첨부 문서: ${d.name}]\n${t}`;}).join('\n\n')+'\n\n'+content;}
   // search results are kept to about 900 characters: on a phone every extra line of reading costs seconds
   if(hasSrc)content=sourcesBlock(sources,Math.min(900,hasDocs?Math.round(B.src*0.7):B.src))+'\n\n'+SEARCH_RULES.trim()+'\n\n[질문]\n'+content;
+  // what the app did for this message (Glok changed clothes, is hugging…) goes with it, so the reply speaks as him
+  if(note)content+='\n\n'+note;
   return sysFix([sys,...hist,{role:'user',content}]);
 }
 // wllama 3.8.1 renders EXAONE 4.0's chat template with llama.cpp's Jinja runtime, which loses the first system message
@@ -1412,22 +1417,174 @@ async function localTags(instruction,sig){
   finally{tagBusy=false;}
 }
 const sceneInstr=(u,a)=>`Write at most 20 tags for an anime illustration of this moment: who is in it, place, action, expression, lighting.\n\nUser: ${String(u||'').slice(0,500)}\nGlok: ${stripThink(a).slice(0,700)}`;
-const KW_TAGS=[
-  [/웃|미소|행복|좋아|기분|설레|ㅎㅎ|ㅋㅋ|사랑|고마워/, 'smile, gentle expression, warm atmosphere, looking at viewer'],
-  [/안아|품|포옹|끌어안|기대/, 'hug, embrace, close-up, affectionate, warm lighting'],
-  [/키스|입맞춤|뽀뽀|입술/, 'kiss, close-up, romantic, blush, soft lighting'],
-  [/침대|자자|잘자|누워|방|이불|밤|새벽/, 'bedroom, bed, night, indoor, dim lighting, cozy'],
-  [/비|우산|창가|창문/, 'rain, window, indoor, atmospheric lighting'],
-  [/카페|커피|차|음료|식당|밥/, 'cafe, indoor, table, sitting, warm lighting'],
-  [/거리|산책|밖|공원|걸어|데이트/, 'outdoors, street, walking, date, gentle breeze'],
-  [/슬퍼|울|눈물|우울|힘들|아파|미안/, 'worried expression, comforting, gentle gaze, close-up'],
-  [/화나|삐졌|질투|투정|장난/, 'smirk, teasing expression, looking at viewer'],
+// ---------- what is going on in the chat: Glok's clothes, where the two are, what happens now ----------
+// The pictures and the replies both follow it. Clothes and place stay until something changes them; an action or a
+// face belongs to one turn. Glok's clothes change only when the user asks him (and he picks them himself when the
+// user doesn't say what).
+const OUTFITS=[
+  {re:/스포티|운동복|트레이닝|추리닝|츄리닝|져지|체육복|운동할\s*때/,ko:'운동복(검은 트레이닝 재킷, 조거 팬츠, 운동화)',tags:'sportswear, black track jacket, jogger pants, sneakers'},
+  {re:/턱시도/,ko:'턱시도',tags:'tuxedo, black bow tie, white dress shirt, formal'},
+  {re:/정장|수트|슈트|양복/,ko:'정장(검은 수트, 흰 셔츠, 넥타이)',tags:'black suit, white dress shirt, necktie, formal'},
+  {re:/가죽\s*(?:재킷|자켓)|라이더\s*(?:재킷|자켓)/,ko:'가죽 재킷',tags:'black leather jacket, black t-shirt, jeans'},
+  {re:/후드|후디/,ko:'후드티',tags:'hoodie, jeans, casual'},
+  {re:/맨투맨/,ko:'맨투맨',tags:'sweatshirt, jeans, casual'},
+  {re:/니트|스웨터/,ko:'니트 스웨터와 슬랙스',tags:'cream knit sweater, gray slacks'},
+  {re:/가디건|카디건/,ko:'가디건',tags:'cardigan, white shirt, slacks'},
+  {re:/트렌치|코트/,ko:'롱코트',tags:'long coat, turtleneck, slacks'},
+  {re:/패딩|겨울\s*옷/,ko:'패딩',tags:'puffer jacket, scarf, winter clothes'},
+  {re:/잠옷|파자마/,ko:'잠옷',tags:'pajamas'},
+  {re:/(?:목욕|샤워)\s*가운|가운\s*(?:입|걸|으로)/,ko:'목욕 가운',tags:'bathrobe'},
+  {re:/수영복|래[쉬시]\s*가드/,ko:'수영복',tags:'swim trunks, topless male'},
+  {re:/한복/,ko:'한복',tags:'hanbok, korean clothes'},
+  {re:/유카타|기모노/,ko:'유카타',tags:'yukata'},
+  {re:/군복|밀리터리/,ko:'군복',tags:'military uniform'},
+  {re:/앞치마/,ko:'앞치마',tags:'apron, white shirt, rolled-up sleeves'},
+  {re:/셔츠|남방/,ko:'흰 셔츠',tags:'white shirt, rolled-up sleeves, slacks'},
+  {re:/반팔|티셔츠|반바지|여름\s*옷/,ko:'반팔 티셔츠와 반바지',tags:'t-shirt, shorts, summer clothes'},
+  {re:/청바지|데님|청\s*(?:재킷|자켓)/,ko:'데님 재킷과 청바지',tags:'denim jacket, jeans'},
+  {re:/캐주얼|편한\s*옷|평상복|사복/,ko:'편한 캐주얼',tags:'casual clothes, t-shirt, open shirt, jeans'},
+  {re:/(?:상의|윗옷|셔츠)\s*(?:를|좀)?\s*벗|웃통|탈의/,ko:'상의를 벗은 모습',tags:'shirtless, topless male'},
 ];
-function instantSceneTags(txt){
-  const t=String(txt||'');const picked=[];
-  for(const [re,tags] of KW_TAGS)if(re.test(t))picked.push(tags);
-  if(!picked.length)picked.push('looking at viewer, gentle smile, upper body, indoor, soft lighting');
+// what Glok picks himself when the user only says "다른 옷"
+const WARDROBE=['니트','후드','셔츠','코트','가죽 재킷','정장','캐주얼','청바지','가디건','맨투맨'];
+const PLACES=[
+  {re:/카페|커피\s*(?:숍|집)/,ko:'카페',tags:'cafe, indoors, table, warm lighting'},
+  {re:/침대|침실|이불\s*속/,ko:'침대',tags:'bedroom, bed, indoors'},
+  {re:/우리\s*집|집에서|집으로|집에\s*(?:가|와|있|왔)|거실|소파/,ko:'집',tags:'living room, sofa, indoors, cozy'},
+  {re:/부엌|주방/,ko:'부엌',tags:'kitchen, indoors'},
+  {re:/공원|산책/,ko:'공원',tags:'park, outdoors, trees'},
+  {re:/바다|해변|바닷가|해수욕/,ko:'바닷가',tags:'beach, ocean, outdoors, sunlight'},
+  {re:/수영장/,ko:'수영장',tags:'swimming pool, outdoors'},
+  {re:/헬스장|체육관/,ko:'헬스장',tags:'gym, indoors'},
+  {re:/회사|사무실/,ko:'사무실',tags:'office, indoors, desk'},
+  {re:/식당|레스토랑|맛집/,ko:'레스토랑',tags:'restaurant, table, indoors, dim lighting'},
+  {re:/술집|포차|칵테일\s*바|바에서/,ko:'바',tags:'bar, cocktail, dim lighting'},
+  {re:/영화관|극장/,ko:'영화관',tags:'movie theater, indoors, dark'},
+  {re:/놀이\s*공원|놀이동산/,ko:'놀이공원',tags:'amusement park, ferris wheel, outdoors'},
+  {re:/한강/,ko:'한강',tags:'riverside, city lights, outdoors'},
+  {re:/캠핑/,ko:'캠핑장',tags:'camping, tent, campfire, outdoors'},
+  {re:/드라이브|차\s*안에서|차에서/,ko:'차 안',tags:'car interior, driving'},
+  {re:/도서관|서점/,ko:'도서관',tags:'library, bookshelf, indoors'},
+  {re:/옥상/,ko:'옥상',tags:'rooftop, cityscape, outdoors, sky'},
+  {re:/노래방/,ko:'노래방',tags:'karaoke, neon lights, indoors'},
+  {re:/거리|시내|번화가|길거리/,ko:'거리',tags:'city street, outdoors'},
+];
+const SKIES=[
+  {re:/비\s*(?:와|온|오는|내려|맞)|우산|장마/,ko:'비',tags:'rain, overcast'},
+  {re:/눈\s*(?:와|온|오는|내려)|함박눈|눈사람/,ko:'눈',tags:'snowing, winter'},
+  {re:/벚꽃/,ko:'벚꽃',tags:'cherry blossoms, falling petals, spring'},
+  {re:/노을|해\s*질/,ko:'노을',tags:'sunset, orange sky'},
+  {re:/밤|야경|새벽/,ko:'밤',tags:'night, moonlight'},
+  {re:/아침|모닝/,ko:'아침',tags:'morning, sunlight'},
+];
+// things the user asks Glok to do right now (ko reads "당신은 지금 … 있어요")
+const ACTS=[
+  {re:/백허그|뒤에서\s*안아/,ko:'사용자를 뒤에서 꼭 안아 주고',tags:'hug from behind, embrace, affectionate'},
+  {re:/안아|포옹|껴안|안겨/,ko:'사용자를 꼭 안아 주고',tags:'hug, embrace, affectionate, close-up'},
+  {re:/뽀뽀|키스|입맞춤/,ko:'사용자에게 다정하게 키스하고',tags:'kiss, romantic, blush, close-up'},
+  {re:/손\s*잡/,ko:'사용자의 손을 꼭 잡고',tags:'holding hands, smile'},
+  {re:/무릎\s*베개/,ko:'사용자에게 무릎베개를 해 주고',tags:'lap pillow, looking down, gentle smile'},
+  {re:/팔\s*베개/,ko:'사용자에게 팔베개를 해 주고',tags:'arm pillow, lying, bed'},
+  {re:/쓰다듬|머리\s*만져/,ko:'사용자의 머리를 쓰다듬고',tags:'headpat, gentle smile'},
+  {re:/업어/,ko:'사용자를 업어 주고',tags:'piggyback, smile'},
+  {re:/셀카|사진\s*(?:보내|찍어|줘)|얼굴\s*보여/,ko:'사용자에게 보낼 셀카를 찍고',tags:'selfie, holding phone, looking at viewer, smile'},
+  {re:/윙크/,ko:'사용자에게 윙크하고',tags:'wink, one eye closed, smile'},
+  {re:/손\s*하트|하트\s*(?:해|만들)/,ko:'손하트를 만들어 보여 주고',tags:'finger heart, smile, looking at viewer'},
+  {re:/춤\s*(?:춰|추)|댄스/,ko:'춤을 추고',tags:'dancing, dynamic pose'},
+  {re:/노래\s*(?:불러|해|하자)/,ko:'노래를 부르고',tags:'singing, open mouth'},
+  {re:/요리\s*(?:해|하자)|밥\s*(?:해\s*줘|해줘|차려)/,ko:'요리를 하고',tags:'cooking, kitchen, apron'},
+  {re:/운동\s*(?:하자|해|할래)/,ko:'함께 운동하고',tags:'exercising, sweat'},
+  {re:/같이\s*자|자자|재워/,ko:'사용자 곁에 누워',tags:'lying in bed, pillow, sleepy, night'},
+  {re:/웃어/,ko:'환하게 웃고',tags:'bright smile, looking at viewer'},
+];
+// the mood of the moment, from what was said
+const MOODS=[
+  [/웃|미소|행복|좋아|기분|설레|ㅎㅎ|ㅋㅋ|사랑|고마워/,'smile, gentle expression, looking at viewer'],
+  [/슬퍼|울(?:어|었|고|지|음|먹)|눈물|우울|힘들|아파|미안/,'worried expression, comforting, gentle gaze'], // not 어울려
+  [/화나|삐졌|질투|투정|장난/,'smirk, teasing expression, looking at viewer'],
+];
+// a request to Glok (not the user telling about her or his own day)
+const ASKS=/(?:줘|주라|줄래|주세요|주면|줄\s*수|해\s*봐|해봐|봐\s*줘|보여|보내|보고\s*싶|하자|할래|입자|해라|입어\s*[!~.?ㅎㅋ]*$|갈아\s*입어\s*[!~.?ㅎㅋ]*$|자자)/;
+const WEARS=/(?:입어|입고|갈아\s*입|바꿔\s*입|걸쳐|차려\s*입|입혀|입은\s*(?:거|모습)|룩|차림|코디|(?:옷|의상)\s*(?:좀\s*)?(?:바꿔|갈아))/;
+const pickOf=(list,t)=>list.find(x=>x.re.test(t))||null;
+// Korean object marker after a word: 으로 after a final consonant (except ㄹ), else 로
+function ro(w){
+  const m=String(w).replace(/\([^)]*\)\s*$/,'').match(/[가-힣](?=[^가-힣]*$)/);
+  if(!m)return '로';
+  const jong=(m[0].charCodeAt(0)-0xAC00)%28;
+  return jong===0||jong===8?'로':'으로';
+}
+const sceneOf=c=>(c&&c.scene)||{};
+// updates the chat's scene from the user's words; returns what the reply should know happened just now
+function sceneFromUser(c,text){
+  const t=String(text||''),sc={...sceneOf(c)};const notes=[];let act=null;
+  const asking=ASKS.test(t);
+  if(asking&&WEARS.test(t)){
+    if(/원래\s*(?:옷|대로|입던)|처음\s*옷|기본\s*옷/.test(t)){
+      if(sc.outfit){delete sc.outfit;notes.push('당신은 원래 입던 옷으로 다시 갈아입었어요.');}
+    }else{
+      const o=pickOf(OUTFITS,t);
+      if(o){sc.outfit={ko:o.ko,tags:o.tags};notes.push(`당신은 사용자의 부탁대로 방금 ${o.ko}${ro(o.ko)} 갈아입었어요.`);}
+      else if(/다른|새\s*옷|갈아|바꿔/.test(t)){
+        const cur=sc.outfit&&sc.outfit.ko;
+        const options=WARDROBE.map(k=>pickOf(OUTFITS,k)).filter(o=>o&&o.ko!==cur);
+        const o2=options[Math.floor(Math.random()*options.length)];
+        sc.outfit={ko:o2.ko,tags:o2.tags,picked:true};
+        notes.push(`당신은 사용자의 부탁으로 직접 고른 새 옷, ${o2.ko}${ro(o2.ko)} 방금 갈아입었어요.`);
+      }
+    }
+  }
+  if(asking){act=pickOf(ACTS,t);if(act)notes.push(`당신은 지금 ${act.ko} 있어요.`);}
+  const pl=pickOf(PLACES,t);if(pl)sc.place={ko:pl.ko,tags:pl.tags};
+  const sk=pickOf(SKIES,t);if(sk)sc.sky={ko:sk.ko,tags:sk.tags};
+  if(c)c.scene=sc;
+  return {note:notes.length?`[지금 상황: ${notes.join(' ')}]`:'',act};
+}
+// Glok himself takes the two somewhere ("카페 가자", "바다 왔다"): the next pictures are there
+function sceneFromReply(c,text){
+  const t=String(text||'');if(!c||!/(?:가자|갈래|가볼까|왔어|왔다|도착|와\s*있)/.test(t))return;
+  const pl=pickOf(PLACES,t);if(pl)c.scene={...sceneOf(c),place:{ko:pl.ko,tags:pl.tags}};
+}
+// tags for this turn's picture: the action asked for, else the mood, else a calm look at the viewer
+function turnSceneTags(c,q,prevA,act){
+  const t=String(q||'')+' '+String(prevA||'');const picked=[];
+  if(act)picked.push(act.tags);
+  for(const [re,tags] of MOODS)if(re.test(t))picked.push(tags);
+  if(!picked.length)picked.push('looking at viewer, gentle smile, upper body'+(sceneOf(c).place?'':', indoors, soft lighting'));
   return cleanTags(picked.join(', '));
+}
+// clothing in the user's base prompt gives way to the outfit Glok has on now; hair, face, jewellery and the art
+// style stay. NovelAI weight groups ("1.2::a, b::") and braces keep their markers.
+const CLOTH_RE=/\b(?:jacket|coat|overcoat|blazer|suit|tuxedo|vest|waistcoat|shirt|t-shirt|tank ?top|hoodie|sweater|sweatshirt|cardigan|turtleneck|knit|uniform|armou?r|cape|cloak|robe|kimono|yukata|hanbok|pajamas|sleepwear|bathrobe|apron|swimsuit|swim ?trunks|sportswear|tracksuit|jersey|pants|trousers|slacks|jeans|shorts|skirt|dress|boots|shoes|sneakers|sandals|loafers|gloves|scarf|necktie|tie|bow ?tie|belt|suspenders|harness|fur[- ]?trim(?:med)?|fur collar|collar(?:ed)?|lapels?|sleeves?|cuffs?|buttons?|unbuttoned|open clothes|zipper|hood|clothes|clothing|outfit|attire|garment|brooch|chains?|badge|epaulettes?|gauntlets?|bracers?|leather|denim|lining|pockets?|straps?|buckles?|ascot|cravat|cufflinks|sash|shirtless|topless)\b/i;
+const KEEP_RE=/\b(?:earrings?|piercings?|choker|necklace|rings?|glasses|eyewear|tattoo|scar|eyepatch|hair|eyes?|skin|face|body)\b/i;
+function stripClothes(base){
+  const items=String(base||'').split(',').map(raw=>{
+    let core=raw.trim(),lead='',trail='',m;
+    while((m=core.match(/^(-?\d+(?:\.\d+)?::|[{\[(])/))){lead+=m[1];core=core.slice(m[1].length).trimStart();}
+    while((m=core.match(/(::|[}\])])$/))){trail=m[1]+trail;core=core.slice(0,-m[1].length).trimEnd();}
+    return {lead,core,trail};
+  });
+  const out=[];let carry='';
+  for(const it of items){
+    const drop=it.core&&CLOTH_RE.test(it.core)&&!KEEP_RE.test(it.core);
+    if(!drop){out.push({lead:carry+it.lead,core:it.core,trail:it.trail});carry='';continue;}
+    let lead=carry+it.lead,trail=it.trail;carry='';
+    // a group that opened here and closes here disappears with it
+    while(lead&&trail){
+      const lm=lead.match(/(-?\d+(?:\.\d+)?::|[{\[(])$/),tm=trail.match(/^(::|[}\])])/);
+      if(!lm||!tm)break;
+      lead=lead.slice(0,-lm[1].length);trail=trail.slice(tm[1].length);
+    }
+    if(lead)carry=lead;
+    if(trail){const prev=out[out.length-1];if(prev)prev.trail+=trail;}
+  }
+  return out.filter(x=>x.core||x.lead||x.trail).map(x=>x.lead+x.core+x.trail).join(', ');
+}
+// the picture of a chat moment: the user's base prompt (with Glok's current clothes), the place and the moment
+function chatImagePrompt(c,turnTags){
+  const sc=sceneOf(c);
+  const base=sc.outfit?stripClothes(S.img.base):S.img.base;
+  return mergeTags(base,sc.outfit?`1.2::${sc.outfit.tags}::`:'',sc.place?sc.place.tags:'',sc.sky?sc.sky.tags:'',turnTags||'');
 }
 const descInstr=d=>`Write at most 20 tags for an anime illustration of: ${String(d).slice(0,500)}`;
 const hasHangul=t=>/[가-힣ㄱ-ㅎ]/.test(t||'');
@@ -1473,7 +1630,8 @@ async function pumpDraw(){
             if(!tags)tags=d;
           }
         }
-        const prompt=mergeTags(S.img.base,tags);
+        // a chat picture wears what Glok had on at that message, where the two were
+        const prompt=job.kind==='scene'?chatImagePrompt({scene:m.scene||sceneOf(c)},tags):mergeTags(S.img.base,tags);
         m.imgPrompt=prompt;
         imgStatus('이미지 그리는 중…');
         const sz=NAI_SIZES[S.img.size]||NAI_SIZES.portrait;
@@ -1715,6 +1873,8 @@ async function generate(ui,pre){
     if(ctl.signal.aborted)throw abortErr();
     if(!loaded||!W)throw new Error('모델이 내려져 있어요. 다시 불러와 주세요.');
 
+    // what this message asks of Glok (clothes, a hug, the place…): the picture shows it and the reply knows it happened
+    const sit=sceneFromUser(c,q);am.scene=JSON.parse(JSON.stringify(sceneOf(c)));touchChat(c);
     const t0=Date.now();let phase=wantSyncImg?'이미지 요청 및 생각 중':'생각하는 중',pct='';
     const tick=()=>setStatus(`${phase}${pct} · ${Math.round((Date.now()-t0)/1000)}초`);
     tick();const iv=setInterval(tick,1000);
@@ -1725,13 +1885,13 @@ async function generate(ui,pre){
         am.holdImg=true;
         let prevA='';
         for(let i=ui-1;i>=0;i--)if(messages[i]&&messages[i].role==='assistant'&&messages[i].content&&!messages[i].err){prevA=messages[i].content;break;}
-        const fastTags=instantSceneTags(q+' '+prevA);
+        const fastTags=turnSceneTags(c,q,prevA,sit.act);
         imgTask=queueDraw(am,c,{kind:'scene',tags:fastTags,sig:ctl.signal});
       }
 
       const isDeep=!!(sources.length||(messages[ui].docs&&messages[ui].docs.length)||/길게|자세히|정리|요약|설명|써\s*줘|작성/.test(q));
       const maxTok=isDeep?+S.maxTokens:Math.min(+S.maxTokens,64);
-      const msgs=buildMessages(ui,sources,isDeep);
+      const msgs=buildMessages(ui,sources,isDeep,sit.note);
       // a casual reply that has said enough is cut short on purpose: that is a finished answer, not a stop
       let enough=false,raf=0,readRate=0,tFirst=0,nOut=0;
       const llmAbort=new AbortController();
@@ -1778,6 +1938,7 @@ async function generate(ui,pre){
       }
       am.content=stripThink(buf).trim()||'(빈 응답)';
       delete am.pendingGen;
+      sceneFromReply(c,am.content);
       notifyNewChat(am.content);
     }finally{clearInterval(iv);}
   }catch(e){
