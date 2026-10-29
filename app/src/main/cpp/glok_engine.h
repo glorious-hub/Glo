@@ -11,6 +11,7 @@ struct llama_model;
 struct llama_context;
 struct llama_vocab;
 struct common_chat_templates;
+struct common_chat_params;
 
 namespace glok {
 
@@ -82,6 +83,9 @@ class Engine {
 
     std::string describe() const; // JSON
 
+    // the prompt text a request turns into (for tests and the device check)
+    std::string render(const ChatParams & p) const;
+
   private:
     struct Slot {
         std::vector<int32_t> tokens; // what the memory holds for this sequence, from position 0
@@ -89,6 +93,8 @@ class Engine {
     };
 
     static bool abort_cb(void * data);
+
+    bool apply_template(const ChatParams & p, common_chat_params & chat, std::string & err) const;
 
     int  pick_slot(const std::vector<int32_t> & prompt, size_t & lcp) const;
     void clear_slot(int s);

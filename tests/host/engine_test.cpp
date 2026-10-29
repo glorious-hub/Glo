@@ -89,6 +89,20 @@ int main(int argc, char ** argv) {
     CHECK(last >= 0.99f, "load progress reached %.2f", last);
     fprintf(stderr, "describe: %s\n", e.describe().c_str());
 
+    // the persona has to be in what the model reads (llama.cpp's Jinja runtime lost it with EXAONE 4.0's template)
+    {
+        glok::ChatParams p;
+        p.messages = { { "system", PERSONA }, { "user", "안녕" } };
+        const std::string txt = e.render(p);
+        fprintf(stderr, "rendered prompt:\n%s\n---\n", txt.c_str());
+        CHECK(txt.find(PERSONA) != std::string::npos, "persona missing from the prompt");
+        CHECK(txt.find("안녕") != std::string::npos, "user message missing from the prompt");
+        if (txt.find("[|system|]") != std::string::npos) {
+            const std::string want = std::string("[|system|]\n") + PERSONA + "[|endofturn|]\n[|user|]\n안녕[|endofturn|]\n[|assistant|]\n<think>\n\n</think>\n\n";
+            CHECK(txt == want, "EXAONE 4.0 prompt differs from the official template's output");
+        }
+    }
+
     glok::ChatParams base;
     base.temperature = 0.55f; base.top_p = 0.9f; base.top_k = 24; base.min_p = 0.08f; base.repeat_penalty = 1.12f;
     base.n_ctx_limit = 2048;

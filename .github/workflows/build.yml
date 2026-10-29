@@ -97,13 +97,9 @@ jobs:
             echo "$KS" | base64 -d > "$RUNNER_TEMP/glok.p12"
             echo "GLOK_KEYSTORE=$RUNNER_TEMP/glok.p12" >> "$GITHUB_ENV"
           else
-            echo "::warning::no GLOK_KEYSTORE_B64 secret, the APK is signed with a temporary key"
+            echo "::warning::no GLOK_KEYSTORE_B64 secret: the phone APK is built unsigned"
           fi
       - name: Build
-        env:
-          GLOK_KEYSTORE_PASSWORD: ${{ secrets.GLOK_KEYSTORE_PASSWORD }}
-          GLOK_KEY_ALIAS: ${{ secrets.GLOK_KEY_ALIAS }}
-          GLOK_KEY_PASSWORD: ${{ secrets.GLOK_KEY_PASSWORD }}
         run: >
           ci/run-logged.sh gradle-${{ matrix.name }}
           ./gradlew --no-daemon --stacktrace ${{ matrix.task }}
@@ -117,6 +113,12 @@ jobs:
           f=$(find app/build/outputs/apk -name '*.apk' | head -1)
           cp "$f" "out/Glok-1.0.${{ github.run_number }}-${{ matrix.name }}.apk"
           ls -l out
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          if "$BT/apksigner" verify --print-certs out/*.apk > signer.txt 2>&1; then
+            echo "::notice title=${{ matrix.name }} APK signer::$(grep -m1 'SHA-256' signer.txt)"
+          else
+            echo "::notice title=${{ matrix.name }} APK::unsigned"
+          fi
           unzip -l out/*.apk | grep -E 'lib/|assets/' || true
       - name: Push logs
         if: always()
@@ -163,6 +165,7 @@ jobs:
           ram-size: 4096M
           disk-size: 8G
           cores: 4
+          profile: pixel_6
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           disable-animations: true
           script: bash ci/emulator-test.sh
@@ -207,7 +210,8 @@ jobs:
           git -c user.name="glok-ci" -c user.email="glok-ci@users.noreply.github.com" commit -q -m "Glok $V"
           git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" apk
           cd ..
-          if [ "$ENGINE" = success ] && [ "$EMU" = success ]; then
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          if [ "$ENGINE" = success ] && [ "$EMU" = success ] && "$BT/apksigner" verify "pub/Glok-$V.apk"; then
             gh release create "v$V" "pub/Glok-$V.apk" --repo "${{ github.repository }}" --target "${{ github.sha }}" \
               --title "Glok $V" --notes "휴대폰용 APK (arm64). 엔진·에뮬레이터 테스트 통과."
           fi

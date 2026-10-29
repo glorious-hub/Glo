@@ -46,11 +46,12 @@ android {
 
     signingConfigs {
         create("release") {
+            // the key file itself is the secret (GLOK_KEYSTORE_B64 in the repository's Actions secrets)
             if (keystorePath != null) {
                 storeFile = file(keystorePath)
-                storePassword = System.getenv("GLOK_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("GLOK_KEY_ALIAS")
-                keyPassword = System.getenv("GLOK_KEY_PASSWORD")
+                storePassword = "glok-release"
+                keyAlias = "glok"
+                keyPassword = "glok-release"
                 storeType = "pkcs12"
             }
         }
@@ -59,7 +60,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = if (keystorePath != null) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            // without the key the APK stays unsigned and is signed outside CI with the same key
+            signingConfig = if (keystorePath != null) signingConfigs.getByName("release") else null
         }
     }
 

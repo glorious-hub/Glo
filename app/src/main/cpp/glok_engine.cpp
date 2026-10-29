@@ -1,4 +1,5 @@
 #include "glok_engine.h"
+#include "exaone4_template.h"
 
 #include "chat.h"
 #include "common.h"
@@ -205,6 +206,14 @@ bool Engine::load(const std::string & path, int n_ctx, int n_threads, int n_thre
 
     vocab_ = llama_model_get_vocab(model_);
     tmpls_ = common_chat_templates_init(model_, "").release();
+    {
+        const std::string src = common_chat_templates_source(tmpls_);
+        if (src.find("[|system|]") != std::string::npos && src.find("continue %}") != std::string::npos) {
+            common_chat_templates_free(tmpls_);
+            tmpls_ = common_chat_templates_init(model_, GLOK_EXAONE4_TEMPLATE).release();
+            GLOG("EXAONE 4 chat template: using the copy without continue (keeps the system message)");
+        }
+    }
     slots_.assign(2, Slot{});
     use_seq_ = 0;
     n_ctx_ = (int) llama_n_ctx(ctx_);
@@ -232,6 +241,62 @@ void Engine::unload() {
     vocab_ = nullptr;
     slots_.clear();
     path_.clear();
+}
+
+bool Engine::apply_template(const ChatParams & p, common_chat_params & chat, std::string & err) const {
+    common_chat_templates_inputs in;
+    for (const auto & m : p.messages) {
+        common_chat_msg cm;
+        cm.role    = m.role;
+        cm.content = m.content;
+        in.messages.push_back(cm);
+    }
+    in.add_generation_prompt = true;
+    in.use_jinja             = true;
+    in.enable_thinking       = p.enable_thinking;
+    in.chat_template_kwargs["enable_thinking"] = p.enable_thinking ? "true" : "false";
+
+    bool ok = false;
+    try {
+        chat = common_chat_templates_apply(tmpls_, in);
+        ok   = true;
+    } catch (const std::exception & e) {
+        GLOG("jinja template failed (%s), using the built-in one", e.what());
+    }
+    // every message has to reach the model; a template the Jinja runtime renders wrong falls back to the built-in format
+    if (ok) {
+        for (const auto & m : p.messages) {
+            if (m.role != "system" && m.role != "user") {
+                continue; // templates may rewrite earlier replies (e.g. drop a think block)
+            }
+            const std::string probe = m.content.substr(0, std::min<size_t>(m.content.size(), 48));
+            if (!probe.empty() && chat.prompt.find(probe) == std::string::npos) {
+                GLOG("a %s message is missing from the rendered prompt, using the built-in format", m.role.c_str());
+                ok = false;
+                break;
+            }
+        }
+    }
+    if (!ok) {
+        try {
+            in.use_jinja = false;
+            in.chat_template_kwargs.clear();
+            chat = common_chat_templates_apply(tmpls_, in);
+        } catch (const std::exception & e) {
+            err = std::string("chat template: ") + e.what();
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string Engine::render(const ChatParams & p) const {
+    if (!tmpls_) {
+        return {};
+    }
+    common_chat_params chat;
+    std::string        err;
+    return apply_template(p, chat, err) ? chat.prompt : "error: " + err;
 }
 
 int Engine::pick_slot(const std::vector<int32_t> & prompt, size_t & lcp) const {
@@ -289,32 +354,10 @@ ChatResult Engine::chat(const ChatParams & p, const Callbacks & cb) {
         return r;
     }
 
-    common_chat_templates_inputs in;
-    for (const auto & m : p.messages) {
-        common_chat_msg cm;
-        cm.role    = m.role;
-        cm.content = m.content;
-        in.messages.push_back(cm);
-    }
-    in.add_generation_prompt = true;
-    in.use_jinja             = true;
-    in.enable_thinking       = p.enable_thinking;
-    in.chat_template_kwargs["enable_thinking"] = p.enable_thinking ? "true" : "false";
-
     common_chat_params chat;
-    try {
-        chat = common_chat_templates_apply(tmpls_, in);
-    } catch (const std::exception & e) {
-        GLOG("jinja template failed (%s), using the built-in one", e.what());
-        try {
-            in.use_jinja = false;
-            in.chat_template_kwargs.clear();
-            chat = common_chat_templates_apply(tmpls_, in);
-        } catch (const std::exception & e2) {
-            r.stop  = "error";
-            r.error = std::string("chat template: ") + e2.what();
-            return r;
-        }
+    if (!apply_template(p, chat, r.error)) {
+        r.stop = "error";
+        return r;
     }
 
     const std::vector<llama_token> prompt = common_tokenize(vocab_, chat.prompt, true, true);
