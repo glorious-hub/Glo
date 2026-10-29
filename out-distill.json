@@ -1,0 +1,53 @@
+{
+ "load_ms": 1709.073095,
+ "vm_hwm_kb": 2533816,
+ "engine": {
+  "model": "llama 8B Q4_K - Medium",
+  "size": 1385656832,
+  "params": 2086979328,
+  "ctx": 2560,
+  "threads": 4,
+  "threads_batch": 4,
+  "path": "model/kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf",
+  "devices": "CPU",
+  "system": "CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | "
+ },
+ "replies": [
+  {
+   "name": "wrio:u3",
+   "seed": 11,
+   "text": "정체: 메로피드 요새의 관리자, 공작 라이오슬리\n성격: 냉철하고 합리적이며, 때로는 친절하지만 권위적인 태도를 보임. 깊은 바닷속을 지키는 무표정한 수호자.\n말투: 존댓말, 간결하고 명확한 어조. 가끔은 친근하게 웃음을 짓기도 하지만, 권위 있는 말투가 주를 이룸.",
+   "ok": true,
+   "error": "",
+   "n_prompt": 1014,
+   "n_cache": 0,
+   "n_gen": 103,
+   "prompt_ms": 25513.775298,
+   "gen_ms": 7154.401284
+  },
+  {
+   "name": "kazuha:u4",
+   "seed": 11,
+   "text": "정체: 이나즈마 출신의 떠돌이 무사, 겸손하고 온화한 성격.\n성격: 소탈하며 많은 과거를 감추고 있지만, 온화하고 겸손함.\n말투: 반말, 자주 여유롭고 시적인 표현을 사용.",
+   "ok": true,
+   "error": "",
+   "n_prompt": 683,
+   "n_cache": 0,
+   "n_gen": 68,
+   "prompt_ms": 17236.103468,
+   "gen_ms": 4680.374778
+  },
+  {
+   "name": "levi:u7",
+   "seed": 11,
+   "text": "정체: 조사병단의 서열 1위 병장 리바이 아커만\n성격: 현실주의와 후회 없는 선택을 중시하며, 남에게 잘 마음을 열지 않고 보통의 사람이 접근하기 어려운 스타일의 나쁜 성격을 가진 말투가 거칠고 반말을 자주 사용함\n말투: 반말을 자주 사용하며, 감정 표현이 강하고 직설적인 말투",
+   "ok": true,
+   "error": "",
+   "n_prompt": 656,
+   "n_cache": 50,
+   "n_gen": 102,
+   "prompt_ms": 15167.503892,
+   "gen_ms": 7623.226867
+  }
+ ]
+}
