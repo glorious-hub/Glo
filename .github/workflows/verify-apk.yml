@@ -1,0 +1,40 @@
+name: Verify and release the signed APK
+
+on:
+  push:
+    branches: [signed]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: apksigner verify
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          rc=0
+          for f in *.apk; do
+            if out=$("$BT/apksigner" verify --verbose --print-certs "$f" 2>&1); then
+              echo "::notice title=$f verified::$(echo "$out" | sed -e 's/%/%25/g' | awk 'BEGIN { ORS = "%0A" } { print }' | cut -c1-3900)"
+            else
+              echo "::error title=$f NOT verified::$(echo "$out" | sed -e 's/%/%25/g' | awk 'BEGIN { ORS = "%0A" } { print }' | cut -c1-3900)"
+              rc=1
+            fi
+          done
+          exit $rc
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f=$(ls Glok-*.apk | head -1)
+          v=${f#Glok-}
+          v=${v%.apk}
+          if gh release view "v$v" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release delete "v$v" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          fi
+          gh release create "v$v" "$f" --repo "$GITHUB_REPOSITORY" --target main --title "Glok $v" \
+            --notes "휴대폰용 Glok 앱 (Android 10 이상, arm64). APK를 받아 열고, '출처를 알 수 없는 앱' 설치를 허용하면 설치돼요."
+          echo "::notice title=release::https://github.com/$GITHUB_REPOSITORY/releases/tag/v$v"
