@@ -16,15 +16,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: ex4-1.2b
-            file: Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
-            url: https://huggingface.co/mradermacher/Huihui-EXAONE-4.0-1.2B-abliterated-GGUF/resolve/main/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
-          - label: ex35-2.4b
-            file: EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
-            url: https://huggingface.co/mradermacher/EXAONE-3.5-2.4B-Instruct-abliterated-GGUF/resolve/main/EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
           - label: kanana-2.1b
             file: kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
             url: https://huggingface.co/mradermacher/kanana-nano-2.1b-instruct-abliterated-GGUF/resolve/main/kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
+          - label: kanana2-3b
+            file: kanana-2-3b-instruct.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/kanana-2-3b-instruct-GGUF/resolve/main/kanana-2-3b-instruct.Q4_K_M.gguf
+          - label: ex35-2.4b
+            file: EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/EXAONE-3.5-2.4B-Instruct-abliterated-GGUF/resolve/main/EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
     steps:
       - uses: actions/checkout@v5
         with:
