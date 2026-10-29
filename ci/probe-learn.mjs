@@ -1,48 +1,35 @@
-// What the app can read on the web to learn a character: each source is fetched as the app would (from its own
-// origin, so CORS matters), and the start of what comes back is kept for reading.
+// HoYoWiki: finding a character's page by name and reading it in Korean (headers, methods, and what CORS allows)
 import fs from 'node:fs';
 const OUT = 'ci-logs';
 fs.mkdirSync(OUT, { recursive: true });
 const ORIGIN = 'https://appassets.androidplatform.net';
-const UA = 'Mozilla/5.0 (Linux; Android 14; SM-S918N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36';
 const enc = encodeURIComponent;
-const name = '라이오슬리';
+const H = { 'x-rpc-language': 'ko-kr', 'x-rpc-wiki_app': 'genshin', 'Content-Type': 'application/json', Referer: 'https://wiki.hoyolab.com/', Origin: 'https://wiki.hoyolab.com' };
 const targets = [
-  ['wiki-search', `https://ko.wikipedia.org/w/api.php?format=json&origin=*&utf8=1&action=query&list=search&srlimit=5&srsearch=${enc(name)}`],
-  ['wiki-full', `https://ko.wikipedia.org/w/api.php?format=json&origin=*&utf8=1&action=query&prop=extracts&explaintext=1&redirects=1&titles=${enc('라이오슬리 (원신)')}`],
-  ['jina-namu-main', `https://r.jina.ai/https://namu.wiki/w/${enc(name)}`],
-  ['jina-namu-lines', `https://r.jina.ai/https://namu.wiki/w/${enc(name + '/대사')}`],
-  ['direct-namu-main', `https://namu.wiki/w/${enc(name)}`, { ua: true }],
-  ['jina-ddg-lines', `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${enc(name + ' 대사')}`],
-  ['jina-ddg-style', `https://r.jina.ai/https://html.duckduckgo.com/html/?q=${enc('원신 ' + name + ' 말투 성격')}`],
-  ['jina-gamedot', `https://r.jina.ai/https://genshin.gamedot.org/?mid=wiki&view=${enc(name)}`],
-  ['hoyowiki-entry', 'https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/entry_page?entry_page_id=4022', { headers: { 'x-rpc-language': 'ko-kr', 'x-rpc-wiki_app': 'genshin' } }],
-  ['hoyowiki-search', `https://sg-wiki-api.hoyolab.com/hoyowiki/genshin/wapi/search?keyword=${enc(name)}`, { headers: { 'x-rpc-language': 'ko-kr', 'x-rpc-wiki_app': 'genshin' } }],
-  ['jina-hoyowiki-page', 'https://r.jina.ai/https://wiki.hoyolab.com/pc/genshin/entry/4022?lang=ko-kr'],
-  ['fandom-voice', 'https://genshin-impact.fandom.com/api.php?action=parse&page=Wriothesley/Voice-Overs&format=json&origin=*&prop=wikitext'],
-  ['fandom-voice-ko', 'https://genshin-impact.fandom.com/api.php?action=parse&page=Wriothesley/Voice-Overs/Korean&format=json&origin=*&prop=wikitext'],
+  ['list-static-post', 'https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/get_entry_page_list', { method: 'POST', headers: H, body: JSON.stringify({ filters: [], menu_id: '2', page_num: 1, page_size: 30, use_es: true }) }],
+  ['list-api-post', 'https://sg-wiki-api.hoyolab.com/hoyowiki/genshin/wapi/get_entry_page_list', { method: 'POST', headers: H, body: JSON.stringify({ filters: [], menu_id: '2', page_num: 1, page_size: 30, use_es: true }) }],
+  ['search-post', 'https://sg-wiki-api.hoyolab.com/hoyowiki/genshin/wapi/search', { method: 'POST', headers: H, body: JSON.stringify({ keyword: '라이오슬리', page_num: 1, page_size: 10 }) }],
+  ['search-get-static', `https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/search?keyword=${enc('라이오슬리')}`, { headers: H }],
+  ['entry-nohdr', 'https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/entry_page?entry_page_id=4022', {}],
+  ['entry-langparam', 'https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/entry_page?entry_page_id=4022&lang=ko-kr', {}],
+  ['entry-hdr-apporigin', 'https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/entry_page?entry_page_id=4022', { headers: { 'x-rpc-language': 'ko-kr', 'x-rpc-wiki_app': 'genshin', Origin: ORIGIN } }],
+  ['entry-via-jina', 'https://r.jina.ai/https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/entry_page?entry_page_id=4022', { headers: { Origin: ORIGIN } }],
+  ['hsr-list', 'https://sg-wiki-api-static.hoyolab.com/hoyowiki/hsr/wapi/get_entry_page_list', { method: 'POST', headers: { ...H, 'x-rpc-wiki_app': 'hsr' }, body: JSON.stringify({ filters: [], menu_id: '104', page_num: 1, page_size: 30, use_es: true }) }],
+  ['wiki-search-wrio', `https://ko.wikipedia.org/w/api.php?format=json&origin=*&utf8=1&action=query&list=search&srlimit=5&srsearch=${enc('원신 라이오슬리')}`, { headers: { Origin: ORIGIN } }],
+  ['jina-naver-lines', 'https://r.jina.ai/https://m.blog.naver.com/PostView.naver?blogId=shinhwa4466&logNo=223963806170', { headers: { Origin: ORIGIN } }],
 ];
 const lines = [];
 const say = s => { console.log(s); lines.push(s); };
-for (const [label, url, opt = {}] of targets) {
-  const headers = { Origin: ORIGIN, ...(opt.headers || {}) };
-  if (opt.ua) headers['User-Agent'] = UA;
+for (const [label, url, opt] of targets) {
   const t0 = Date.now();
-  let pre = '';
-  if (opt.headers) {
-    try {
-      const p = await fetch(url, { method: 'OPTIONS', headers: { Origin: ORIGIN, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': Object.keys(opt.headers).join(',') }, signal: AbortSignal.timeout(20000) });
-      pre = ` preflight=${p.status} allow-origin=${p.headers.get('access-control-allow-origin')} allow-headers=${p.headers.get('access-control-allow-headers')}`;
-    } catch (e) { pre = ` preflight=ERR ${e.message}`; }
-  }
   try {
-    const r = await fetch(url, { headers, signal: AbortSignal.timeout(45000) });
+    const r = await fetch(url, { method: opt.method || 'GET', headers: opt.headers || {}, body: opt.body, signal: AbortSignal.timeout(45000) });
     const body = await r.text();
     fs.writeFileSync(`${OUT}/${label}.txt`, body);
     const ko = (body.match(/[가-힣]/g) || []).length;
-    say(`${label}\tstatus=${r.status}\tms=${Date.now() - t0}\tbytes=${body.length}\thangul=${ko}\tallow-origin=${r.headers.get('access-control-allow-origin')}\ttype=${r.headers.get('content-type')}${pre}`);
+    say(`${label}\tstatus=${r.status}\tms=${Date.now() - t0}\tbytes=${body.length}\thangul=${ko}\tallow-origin=${r.headers.get('access-control-allow-origin')}\thead=${body.slice(0, 160).replace(/\s+/g, ' ')}`);
   } catch (e) {
-    say(`${label}\tERR ${e.name} ${e.message}\tms=${Date.now() - t0}${pre}`);
+    say(`${label}\tERR ${e.name} ${e.message}\tms=${Date.now() - t0}`);
   }
 }
 fs.writeFileSync(`${OUT}/summary.txt`, lines.join('\n') + '\n');
