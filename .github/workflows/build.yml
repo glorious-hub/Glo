@@ -1,0 +1,185 @@
+name: Build Glok APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  MODEL_FILE: Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
+  MODEL_URL: https://huggingface.co/mradermacher/Huihui-EXAONE-4.0-1.2B-abliterated-GGUF/resolve/main/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
+
+jobs:
+  engine-test:
+    name: Engine test (real model)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Cache model
+        uses: actions/cache@v4
+        with:
+          path: model
+          key: model-${{ env.MODEL_FILE }}
+      - name: Download model
+        run: |
+          mkdir -p model
+          [ -s "model/$MODEL_FILE" ] || curl -fL --retry 3 -o "model/$MODEL_FILE" "$MODEL_URL"
+          ls -l model
+      - name: Build
+        run: |
+          sudo apt-get install -y ninja-build > /dev/null
+          cmake -S tests/host -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-host --target engine_test -j 4
+      - name: Run
+        run: |
+          set -o pipefail
+          ./build-host/engine_test "model/$MODEL_FILE" --expect-korean 2>&1 | tee engine-test.log | grep -E '^(ok |FAIL|  ->|  text|SPEED|ENGINE TEST|\[glok\]|describe|perf_cores)'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engine-test-log
+          path: engine-test.log
+
+  apk:
+    name: APK (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: phone
+            abi: arm64-v8a
+            task: assembleRelease
+          - name: emulator-test
+            abi: x86_64
+            task: assembleDebug
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ndk-${{ matrix.abi }}
+          max-size: 2G
+      - name: Signing key
+        if: matrix.task == 'assembleRelease'
+        env:
+          KS: ${{ secrets.GLOK_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/glok.p12"
+            echo "GLOK_KEYSTORE=$RUNNER_TEMP/glok.p12" >> "$GITHUB_ENV"
+          else
+            echo "::warning::no GLOK_KEYSTORE_B64 secret, the APK is signed with a temporary key"
+          fi
+      - name: Build
+        env:
+          GLOK_KEYSTORE_PASSWORD: ${{ secrets.GLOK_KEYSTORE_PASSWORD }}
+          GLOK_KEY_ALIAS: ${{ secrets.GLOK_KEY_ALIAS }}
+          GLOK_KEY_PASSWORD: ${{ secrets.GLOK_KEY_PASSWORD }}
+        run: >
+          ./gradlew --no-daemon --stacktrace ${{ matrix.task }}
+          -PglokAbis=${{ matrix.abi }}
+          -PglokVersionCode=${{ github.run_number }}
+          -PglokVersionName=1.0.${{ github.run_number }}
+          -PglokCcache=true
+      - name: Collect
+        run: |
+          mkdir -p out
+          f=$(find app/build/outputs/apk -name '*.apk' | head -1)
+          cp "$f" "out/Glok-1.0.${{ github.run_number }}-${{ matrix.name }}.apk"
+          ls -l out
+          unzip -l out/*.apk | grep -E 'lib/|assets/' || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.name }}
+          path: out/*.apk
+
+  emulator:
+    name: Emulator test (background, notification, screen off)
+    needs: apk
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-emulator-test
+          path: apk-test
+      - name: Cache model
+        uses: actions/cache@v4
+        with:
+          path: model
+          key: model-${{ env.MODEL_FILE }}
+      - name: Download model
+        run: |
+          mkdir -p model
+          [ -s "model/$MODEL_FILE" ] || curl -fL --retry 3 -o "model/$MODEL_FILE" "$MODEL_URL"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          ram-size: 4096M
+          disk-size: 8G
+          cores: 4
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          disable-animations: true
+          script: bash ci/emulator-test.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-results
+          path: ci-out
+
+  publish:
+    name: Publish
+    needs: [apk, engine-test, emulator]
+    if: always() && needs.apk.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - name: apk branch and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENGINE: ${{ needs.engine-test.result }}
+          EMU: ${{ needs.emulator.result }}
+        run: |
+          set -e
+          V=1.0.${{ github.run_number }}
+          mkdir pub
+          cp art/apk-phone/*.apk "pub/Glok-$V.apk"
+          if [ -d art/emulator-results ]; then cp -r art/emulator-results pub/emulator; fi
+          if [ -d art/engine-test-log ]; then cp art/engine-test-log/* pub/; fi
+          printf 'version %s\nengine test: %s\nemulator test: %s\ncommit %s\n' "$V" "$ENGINE" "$EMU" "${{ github.sha }}" > pub/RESULT.txt
+          cd pub
+          git init -q -b apk
+          git add -A
+          git -c user.name="glok-ci" -c user.email="glok-ci@users.noreply.github.com" commit -q -m "Glok $V"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" apk
+          cd ..
+          if [ "$ENGINE" = success ] && [ "$EMU" = success ]; then
+            gh release create "v$V" "pub/Glok-$V.apk" --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+              --title "Glok $V" --notes "휴대폰용 APK (arm64). 엔진·에뮬레이터 테스트 통과."
+          fi

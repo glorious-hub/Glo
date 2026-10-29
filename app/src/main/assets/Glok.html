@@ -1,0 +1,2329 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Glok</title>
+<meta name="description" content="폰 브라우저에서 바로 도는 가벼운 로컬 AI">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Glok">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='180' height='180' rx='40' fill='black'/%3E%3Ctext x='90' y='124' font-size='104' font-family='Arial,sans-serif' font-weight='700' fill='white' text-anchor='middle'%3EG%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' rx='14' fill='black'/%3E%3Ctext x='32' y='46' font-size='40' font-family='Arial,sans-serif' font-weight='700' fill='white' text-anchor='middle'%3EG%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#000;--surface:#121212;--surface-2:#1b1b1d;--surface-3:#232326;--line:#2a2a2d;--line-soft:#1d1d20;
+    --text:#f4f4f5;--muted:#8d8d93;--muted-2:#636368;--user-bubble:#1f1f22;
+    --danger:#ff6a6a;--ok:#7bd88f;--warn:#e8c46a;--link:#9bd1ff;
+    --maxw:760px;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR","Apple SD Gothic Neo",Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.6;display:flex;flex-direction:column;height:100dvh;overflow:hidden;-webkit-font-smoothing:antialiased;word-break:keep-all}
+  [hidden]{display:none!important}
+  button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none;padding:0}
+  textarea,input,select{font-family:inherit;font-size:16px;color:var(--text)}
+  button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+
+  /* header + tabs */
+  header.top{display:flex;align-items:center;gap:6px;padding:calc(var(--safe-t) + 8px) 8px 4px;background:var(--bg);position:relative;z-index:5}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px;letter-spacing:.2px;flex:none}
+  .logo{width:26px;height:26px;border-radius:8px;background:#fff;color:#000;display:grid;place-items:center;font-weight:800;font-size:17px;flex:none}
+  .model-pill{display:flex;align-items:center;gap:7px;min-width:0;font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line-soft);padding:4px 10px;border-radius:999px;margin-left:2px}
+  .model-pill span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted-2);flex:none}
+  .dot.on{background:var(--ok)}.dot.busy{background:var(--warn)}.dot.err{background:var(--danger)}
+  .spacer{flex:1}
+  .hbtn{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--muted);flex:none}
+  .hbtn:hover{background:var(--surface);color:var(--text)}
+  .hbtn svg{width:20px;height:20px}
+  @media (max-width:370px){header.top{gap:4px;padding-left:6px;padding-right:6px}.hbtn{width:34px}.model-pill{padding:4px 9px}} /* room for the model name next to the save button */
+  .tabs{display:flex;gap:4px;padding:2px 12px 8px;border-bottom:1px solid var(--line-soft)}
+  .tabs button{padding:6px 16px;border-radius:999px;font-size:14px;color:var(--muted);font-weight:500}
+  .tabs button.on{background:var(--surface-2);color:var(--text);font-weight:600}
+
+  .view{flex:1;display:flex;flex-direction:column;min-height:0}
+
+  /* chat thread */
+  #scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+  #thread{max-width:var(--maxw);margin:0 auto;padding:18px 16px 26px;display:flex;flex-direction:column;gap:18px;min-height:100%}
+  .msg{display:flex;flex-direction:column;gap:6px;animation:rise .2s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.msg,.sheet,#drawer{animation:none;transition:none}}
+  .msg.user{align-items:flex-end}
+  .bubble{max-width:100%;border-radius:18px;padding:11px 15px;overflow-wrap:anywhere}
+  .user .bubble{background:var(--user-bubble);border:1px solid var(--line-soft);border-bottom-right-radius:6px;max-width:85%}
+  .assistant .bubble{padding:2px}
+  .bubble p{margin:0 0 10px}.bubble p:last-child{margin:0}
+  .bubble pre{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;overflow-x:auto;margin:10px 0;font-size:13.5px;line-height:1.5}
+  .bubble code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .bubble :not(pre)>code{background:var(--surface-2);border:1px solid var(--line-soft);padding:1px 5px;border-radius:6px;font-size:.9em}
+  .bubble a{color:var(--link)}
+  .note{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .srcs{font-size:12.5px;color:var(--muted);margin-top:10px;border-top:1px solid var(--line-soft);padding-top:8px}
+  .srcs a{display:block;margin:3px 0;color:var(--link);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
+  .chatimg{display:block;margin-top:10px;width:min(72%,248px);height:auto;border-radius:14px;border:1px solid var(--line);cursor:zoom-in;background:var(--surface-2)}
+  .imgph{margin-top:10px;width:min(72%,248px);aspect-ratio:832/1216;border-radius:14px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:13px;background:var(--surface)}
+  .meta{display:flex;gap:2px;align-items:center;min-height:26px;flex-wrap:wrap}
+  .mbtn{font-size:12px;color:var(--muted-2);padding:3px 8px;border-radius:8px;display:flex;align-items:center;gap:5px}
+  .mbtn:hover{background:var(--surface);color:var(--text)}
+  .mbtn svg{width:14px;height:14px}
+  .mbtn.prep{color:#000;background:#fff;font-weight:600}
+  .typing{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.25}}
+
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:16px 4px;color:var(--muted)}
+  .empty .logo{width:54px;height:54px;border-radius:16px;font-size:34px}
+  .empty h1{margin:0;font-size:26px;color:var(--text);font-weight:700}
+  .card{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:left}
+  .card .t{color:var(--text);font-weight:600;font-size:15px}
+  .card .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .card .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:460px}
+  .chipq{font-size:13.5px;color:var(--text);background:var(--surface);border:1px solid var(--line);padding:8px 13px;border-radius:999px}
+
+  .btn{padding:11px 14px;border-radius:12px;font-weight:600;text-align:center;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;word-break:keep-all}
+  .btn.primary{background:#fff;color:#000}
+  .btn small{display:block;font-size:11.5px;font-weight:500;opacity:.62;font-variant-numeric:tabular-nums}
+  .btn.stack{flex-direction:column;gap:0;line-height:1.3}
+  .btn.ghost{background:var(--surface-2);border:1px solid var(--line);color:var(--text)}
+  .btn.danger{background:transparent;border:1px solid #4a2626;color:var(--danger)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .grow{flex:1}
+  .prog{height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden;margin-top:10px}
+  .prog>div{height:100%;width:0;background:#fff;transition:width .2s}
+  .progtxt{font-size:12px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
+
+  /* composer: text on top, controls row inside the box (Grok-style) */
+  #composer{background:var(--bg);padding:6px 12px calc(var(--safe-b) + 10px)}
+  .cwrap{max-width:var(--maxw);margin:0 auto}
+  .statusline{font-size:12px;color:var(--muted);margin:0 0 6px 8px;display:flex;align-items:center;gap:7px}
+  .box{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:8px 8px 6px 12px}
+  .box:focus-within{border-color:#3a3a3e}
+  .atts{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 6px}
+  .att-chip{display:flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:4px 8px;font-size:12.5px;max-width:220px}
+  .att-chip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+  .att-chip .x{color:var(--muted-2)}
+  #input{display:block;width:100%;background:none;border:none;outline:none;resize:none;max-height:36vh;padding:6px 4px 4px;line-height:1.5}
+  .ctrl{display:flex;align-items:center;gap:6px;margin-top:4px}
+  .cbtn{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;color:var(--muted)}
+  .cbtn:hover{background:var(--surface-2);color:var(--text)}
+  .cbtn svg{width:19px;height:19px}
+  .chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 11px;border-radius:999px;border:1px solid var(--line);font-size:12.5px;color:var(--muted);white-space:nowrap;flex:none}
+  .chip svg{width:15px;height:15px}
+  .chip.on{background:#fff;color:#000;border-color:#fff;font-weight:600}
+  #send{width:36px;height:36px;border-radius:50%;flex:none;background:#fff;color:#000;display:grid;place-items:center}
+  #send svg{width:19px;height:19px}
+  #send.stop{background:var(--danger);color:#fff}
+
+  /* image tab */
+  #imgScroll{flex:1;overflow-y:auto;overflow-x:hidden}
+  .iwrap{max-width:var(--maxw);margin:0 auto;padding:16px 16px 40px;display:flex;flex-direction:column;gap:16px}
+  .sec{border:1px solid var(--line-soft);border-radius:16px;padding:14px;background:var(--surface)}
+  .sec>.h{font-size:13px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .fld{margin-bottom:12px}
+  .fld:last-child{margin-bottom:0}
+  .fld label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .fld .desc{font-size:11.5px;color:var(--muted-2);margin-top:5px;line-height:1.5}
+  .fld input[type=text],.fld input[type=password],.fld input[type=number],.fld textarea,.fld select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:10px 12px;outline:none}
+  .fld textarea{resize:vertical;min-height:84px;line-height:1.5}
+  .row2{display:flex;gap:10px}.row2>*{flex:1;min-width:0}
+  .row3{display:flex;gap:10px}.row3>*{flex:1;min-width:0}
+  /* same three columns as the steps / guidance / seed row, so the edges line up */
+  .cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.cols3>*{min-width:0}.cols3>.span2{grid-column:span 2}
+  #imgSampler{-webkit-appearance:none;appearance:none;font-size:15px;line-height:20px;padding:10px 28px 10px 12px;text-overflow:ellipsis;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238d8d93' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center;background-size:12px 8px}
+  @media (max-width:340px){.cols3>.span2{grid-column:span 3}}
+  .seg{display:grid;gap:6px;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .seg button{min-height:40px;padding:7px 6px;border-radius:10px;border:1px solid var(--line);font-size:13px;color:var(--muted);background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.25;white-space:nowrap}
+  .seg button small{font-size:11px;color:var(--muted-2);font-variant-numeric:tabular-nums}
+  .seg button.on{background:#fff;color:#000;border-color:#fff;font-weight:600}
+  .seg button.on small{color:#555;font-weight:500}
+  .naistat{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+  .naistat b{color:var(--text);font-weight:600}
+  .linkbtn{color:var(--muted);font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+  .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .grid button{display:block;border-radius:9px;overflow:hidden;background:var(--surface-2);border:1px solid var(--line-soft)}
+  .grid img{display:block;width:100%;height:auto}
+  .gempty{font-size:13px;color:var(--muted);padding:6px 2px}
+  .fld textarea.short{min-height:64px}
+
+  /* overlays */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(3px);z-index:50}
+  #drawer{position:fixed;top:0;bottom:0;left:0;width:min(330px,86vw);background:var(--surface);border-right:1px solid var(--line);z-index:52;display:flex;flex-direction:column;padding:calc(var(--safe-t) + 12px) 10px calc(var(--safe-b) + 12px);transform:translateX(-102%);transition:transform .22s ease;visibility:hidden}
+  #drawer.show{transform:none;visibility:visible}
+  #drawer .dh{display:flex;align-items:center;gap:8px;padding:2px 4px 10px}
+  #drawer .dh h2{margin:0;font-size:17px;flex:1}
+  #chatList{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+  .crow{display:flex;align-items:center;gap:6px;border-radius:12px}
+  .crow.cur{background:var(--surface-2)}
+  .crow .open{flex:1;min-width:0;text-align:left;padding:10px}
+  .crow .tt{font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .crow .dd{font-size:11.5px;color:var(--muted-2);font-variant-numeric:tabular-nums}
+  .crow .del{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--muted-2);flex:none}
+  .crow .del:hover{background:var(--surface-3);color:var(--danger)}
+  .crow .del svg{width:16px;height:16px}
+  .sheet{position:fixed;z-index:52;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88dvh;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
+  .sheet h2{margin:2px 0 14px;font-size:18px}
+  .sheet .sec{background:transparent;margin-bottom:12px}
+  .opt{display:flex;gap:10px;align-items:flex-start;padding:9px;border-radius:10px;border:1px solid var(--line-soft);margin-bottom:8px;cursor:pointer}
+  .opt.sel{border-color:#d8d8d8}
+  .opt input{margin-top:4px;accent-color:#fff}
+  .opt .t{font-size:14px}.opt .s{font-size:12px;color:var(--muted)}
+  .tog{display:flex;align-items:center;gap:10px;margin:10px 0}
+  .tog .lbl{font-size:14px}.tog .d{font-size:11.5px;color:var(--muted-2)}
+  .switch{width:46px;height:27px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative;flex:none;transition:background .15s}
+  .switch::after{content:"";position:absolute;width:21px;height:21px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .15s}
+  .switch.on{background:#2e6a3a;border-color:#2e6a3a}.switch.on::after{left:21px}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .diag{font-size:11.5px;color:var(--muted-2);line-height:1.7;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .ask{position:fixed;z-index:60;left:50%;top:50%;transform:translate(-50%,-50%);width:min(360px,90vw);background:var(--surface-2);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .ask p{margin:0 0 14px;font-size:15px}
+  .viewer{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.94);display:flex;flex-direction:column;padding:calc(var(--safe-t) + 8px) 12px calc(var(--safe-b) + 12px)}
+  .viewer .vbar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .viewer .vimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+  .viewer .vimg img{max-width:100%;max-height:100%;border-radius:12px}
+  .viewer .vinfo{font-size:12px;color:var(--muted);margin-top:10px;max-height:24vh;overflow-y:auto;overflow-wrap:anywhere}
+  .viewer .vinfo .p{color:var(--text);font-size:13px;margin-top:4px;user-select:text}
+  .toast{position:fixed;left:50%;bottom:calc(var(--safe-b) + 100px);transform:translateX(-50%);background:var(--surface-3);border:1px solid var(--line);color:var(--text);padding:9px 15px;border-radius:999px;font-size:13px;z-index:70;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+  .toast.show{opacity:1}
+  .askscrim{position:fixed;inset:0;z-index:59;background:rgba(0,0,0,.55)}
+  .msg.draw .chatimg,.msg.draw .imgph{margin-top:0}
+  .imgcap{font-size:12px;color:var(--muted-2);margin-top:7px;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:248px}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#2a2a2d;border-radius:9px}
+  /* narrow phones: keep every composer control on one row without sideways scrolling */
+  @media (max-width:400px){
+    #composer{padding-left:10px;padding-right:10px}
+    .box{padding:8px 6px 6px 10px}
+    .ctrl{gap:4px}
+    .chip{padding:0 9px;gap:5px}
+    .chip svg{width:14px;height:14px}
+    header.top{gap:4px;padding-left:6px;padding-right:6px}
+  }
+  @media (max-width:350px){.chip svg{display:none}}
+  .bgmodal-scrim{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px}
+  .bgmodal{width:min(440px,94vw);max-height:88dvh;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 18px;box-shadow:0 20px 50px rgba(0,0,0,.7);animation:rise .22s ease}
+  .bgmodal .bgh{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .bgmodal .bgh .badge{width:34px;height:34px;border-radius:10px;background:#fff;color:#000;display:grid;place-items:center;font-weight:800;font-size:18px;flex:none}
+  .bgmodal h3{margin:0;font-size:17px;line-height:1.35}
+  .bgmodal .sub{font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+  .bgstep{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-bottom:10px}
+  .bgstep.done{border-color:#2e6a3a;background:rgba(46,106,58,.12)}
+  .bgstep .st-top{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;color:var(--text)}
+  .bgstep .st-num{width:22px;height:22px;border-radius:50%;background:var(--surface-3);color:var(--text);font-size:12px;display:grid;place-items:center;flex:none}
+  .bgstep.done .st-num{background:var(--ok);color:#000}
+  .bgstep .st-desc{font-size:12.5px;color:var(--muted);margin:7px 0 0 30px;line-height:1.55}
+  .bgstep .st-desc b{color:var(--text)}
+  .bgstep .st-act{margin:9px 0 0 30px;display:flex;gap:8px;flex-wrap:wrap}
+  .bgstep .st-btn{padding:7px 12px;border-radius:9px;font-size:12.5px;font-weight:600;background:var(--surface-2);border:1px solid var(--line);color:var(--text);display:inline-flex;align-items:center;gap:5px;text-decoration:none}
+  .bgstep.done .st-btn{background:#2e6a3a;border-color:#2e6a3a;color:#fff}
+  /* KakaoTalk-style notification banner & bottom unread pill */
+  .kbanner{position:fixed;top:calc(var(--safe-t) + 10px);left:50%;transform:translate(-50%,-140%);width:min(420px,92vw);background:#1e1e22;border:1px solid #3a3a42;border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:11px;z-index:90;box-shadow:0 12px 32px rgba(0,0,0,.65);transition:transform .26s cubic-bezier(.2,.9,.3,1),opacity .22s ease;opacity:0;cursor:pointer; pointer-events:none}
+  .kbanner.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+  .kbanner .kava{width:38px;height:38px;border-radius:13px;background:#fff;color:#000;display:grid;place-items:center;font-weight:800;font-size:18px;flex:none}
+  .kbanner .kbody{flex:1;min-width:0;text-align:left}
+  .kbanner .ktit{font-size:13px;font-weight:700;color:#fee500;display:flex;align-items:center;gap:6px}
+  .kbanner .ktit span{color:var(--text);font-weight:600}
+  .kbanner .ktxt{font-size:13.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+  .newchat-pill{display:flex;align-items:center;gap:8px;background:#fee500;color:#111;font-weight:700;font-size:13px;padding:8px 14px;border-radius:999px;margin:0 auto 8px;width:fit-content;max-width:92%;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer;animation:rise .18s ease}
+  .newchat-pill>span{white-space:nowrap;flex:none}
+  .newchat-pill .preview{font-weight:500;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:190px;min-width:0;flex:0 1 auto}
+  .ka-pill{font-size:11px;padding:3px 8px;border-radius:999px;background:var(--surface);border:1px solid var(--line-soft);color:var(--muted);display:inline-flex;align-items:center;gap:5px;flex:none}
+  .ka-pill.on{border-color:#2e6a3a;color:var(--ok);background:rgba(46,106,58,.15)}
+  .tog .lbl .ka-pill{display:flex;width:fit-content;margin:5px 0 3px;line-height:1.3}
+</style>
+</head>
+<body>
+<header class="top">
+  <button class="hbtn" id="menuBtn" title="지난 채팅" aria-label="지난 채팅"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+  <div class="brand"><span class="logo">G</span>Glok</div>
+  <button class="model-pill" id="modelPill" title="모델"><span class="dot" id="dot"></span><span id="modelName">모델 없음</span></button>
+  <div class="spacer"></div>
+  <button class="hbtn" id="topSaveHtml" title="Glok.html 다운로드" aria-label="Glok.html 다운로드"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></button>
+  <button class="hbtn" id="newChat" title="새 채팅" aria-label="새 채팅"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="hbtn" id="openSettings" title="설정" aria-label="설정"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" id="tabChat" class="on" aria-selected="true">채팅</button>
+  <button role="tab" id="tabImage" aria-selected="false">이미지</button>
+</nav>
+
+<main class="view" id="viewChat">
+  <div id="scroll"><div id="thread"></div></div>
+  <div id="composer">
+    <div class="cwrap">
+      <button type="button" class="newchat-pill" id="newChatPill" hidden><span>💬 새 채팅이 있습니다</span><span class="preview" id="newChatPreview"></span><span>↓</span></button>
+      <div class="statusline" id="statusline" hidden><span class="typing"></span><span id="statusText"></span></div>
+      <div class="box">
+        <div class="atts" id="atts" hidden></div>
+        <textarea id="input" rows="1" placeholder="무엇이든 이야기해요" autocomplete="off"></textarea>
+        <div class="ctrl">
+          <button class="cbtn" id="attachBtn" title="파일 첨부 (문서·.gguf 모델)" aria-label="파일 첨부"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+          <button class="chip" id="searchChip" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7.5"/><path d="M21 21l-4.3-4.3"/></svg>딥서치</button>
+          <button class="chip" id="imgChip" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg>자동 이미지</button>
+          <div class="spacer"></div>
+          <button class="cbtn" id="pasteBtn" title="붙여넣기" aria-label="붙여넣기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9z"/><path d="M15 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg></button>
+          <button id="send" title="보내기" aria-label="보내기"></button>
+        </div>
+      </div>
+    </div>
+    <input type="file" id="fileInput" multiple hidden accept=".txt,.md,.markdown,.csv,.tsv,.json,.log,.html,.htm,.xml,.srt,.py,.js,.ts,.java,.c,.cpp,.go,.rs,.sh,.yaml,.yml,.gguf,text/*,application/octet-stream">
+    <input type="file" id="ggufInput" hidden>
+  </div>
+</main>
+
+<main class="view" id="viewImage" hidden>
+  <div id="imgScroll"><div class="iwrap">
+    <section class="sec" id="naiConnect">
+      <div class="h">NovelAI 연결</div>
+      <div class="fld"><label for="naiKeyInput">API 키</label>
+        <input type="password" id="naiKeyInput" placeholder="pst-로 시작하는 키" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <div class="desc">NovelAI 사이트의 설정 → Account → Get Persistent API Token에서 받은 키예요. 한 번 연결하면 이 폰에만 저장돼서 다시 넣을 필요가 없어요.</div></div>
+      <button class="btn primary" id="naiConnectBtn" style="width:100%">연결</button>
+    </section>
+
+    <section class="sec" id="naiPanel" hidden>
+      <div class="h"><span class="naistat"><span class="dot on"></span><span id="naiStatusText">연결됨</span></span><span class="spacer"></span><button class="linkbtn" id="naiLogout">연결 해제</button></div>
+      <div class="fld"><label for="imgPrompt">프롬프트</label><textarea id="imgPrompt" placeholder="예: 1boy, adult, black hair, smile, cafe, warm lighting"></textarea></div>
+      <div class="fld"><label for="imgNeg">네거티브</label><textarea id="imgNeg" class="short" placeholder="빼고 싶은 태그 (비워 두면 없음)"></textarea>
+        <div class="desc">적은 것만 들어가요. 채팅에서 그릴 때도 같이 쓰여요.</div></div>
+      <div class="fld"><label>모델</label><div class="seg" id="imgModelSeg"></div></div>
+      <div class="fld"><label>크기</label><div class="seg" id="imgSizeSeg"></div></div>
+      <div class="row3">
+        <div class="fld"><label for="imgSteps">스텝</label><input type="number" id="imgSteps" min="1" max="28" step="1"></div>
+        <div class="fld"><label for="imgScale">가이던스</label><input type="number" id="imgScale" min="1" max="10" step="0.1"></div>
+        <div class="fld"><label for="imgSeed">시드</label><input type="text" id="imgSeed" inputmode="numeric" placeholder="랜덤"></div>
+      </div>
+      <div class="cols3">
+        <div class="fld span2"><label for="imgSampler">샘플러</label><select id="imgSampler"></select></div>
+        <div class="fld"><label for="imgRescale">리스케일</label><input type="number" id="imgRescale" min="0" max="1" step="0.02" inputmode="decimal"></div>
+      </div>
+      <div class="fld"><label>품질 태그</label><div class="seg" id="imgQualSeg"></div></div>
+      <button class="btn primary" id="imgGo" style="width:100%">생성</button>
+      <div class="note" id="imgCost"></div>
+    </section>
+
+    <section class="sec" id="autoSec" hidden>
+      <div class="h">채팅 자동 이미지</div>
+      <div class="tog"><div class="switch" id="tAutoImg"></div><div><div class="lbl">답장마다 장면 그리기</div><div class="d">채팅 입력창의 '자동 이미지' 버튼과 같은 설정이에요</div></div></div>
+      <div class="fld"><label for="imgBase">기본 태그</label><textarea id="imgBase"></textarea>
+        <div class="desc">채팅에서 그릴 때(자동 이미지·그리기·/그림) 맨 앞에 붙어요. 캐릭터 외형이나 화풍을 넣어 두면 그림이 일정해져요. 장면 태그는 로컬 모델이 대화를 보고 덧붙여요.</div></div>
+      <div class="note">채팅창에 <b>/그림</b> 뒤에 장면을 적으면 바로 그려요. 예: /그림 비 오는 밤, 창가에서 웃는 모습</div>
+    </section>
+
+    <section class="sec">
+      <div class="h">내 이미지</div>
+      <div class="grid" id="gallery"></div>
+      <div class="gempty" id="galleryEmpty">아직 만든 이미지가 없어요.</div>
+      <div class="note">이미지 검열 여부는 NovelAI 서버 정책을 따릅니다.</div>
+    </section>
+  </div></div>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<aside id="drawer" aria-label="지난 채팅">
+  <div class="dh"><h2>지난 채팅</h2><button class="btn ghost" id="drawerNew">새 채팅</button></div>
+  <div id="chatList"></div>
+</aside>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden>
+  <h2>설정</h2>
+  <div class="sec" id="secModel">
+    <div class="h">로컬 모델 (이 폰의 브라우저 안에서 실행)</div>
+    <div id="modelOpts"></div>
+    <div class="note" id="modelState"></div>
+    <div class="prog" id="prog" hidden><div id="progBar"></div></div>
+    <div class="progtxt" id="progTxt"></div>
+    <div class="btnrow">
+      <button class="btn primary grow" id="mMain">다운로드하고 시작</button>
+      <button class="btn ghost grow" id="mFile">모델 파일 열기</button>
+    </div>
+    <div class="btnrow">
+      <button class="btn ghost grow" id="mUnload">메모리에서 내리기</button>
+      <button class="btn danger grow" id="mDelete">저장된 모델 삭제</button>
+    </div>
+    <div class="note">모델 저장이 안 되는 환경이면 <a id="mDirect" href="#" target="_blank" rel="noopener noreferrer" style="color:var(--link)">모델 파일을 폰에 직접 받은 뒤</a> "모델 파일 열기"로 고르세요.</div>
+    <div class="tog"><div class="switch" id="tAuto"></div><div><div class="lbl">열 때 자동으로 불러오기</div><div class="d">저장된 모델이 있으면 앱을 열자마자 준비해요</div></div></div>
+    <div class="tog"><div class="switch" id="tKeepAlive"></div><div style="flex:1"><div class="lbl">백그라운드 연결 유지<span class="ka-pill" id="kaBadge" title="백그라운드 유지 상태">⚡ 대기</span></div><div class="d">화면을 끄거나 다른 앱을 볼 때도 모델이 내려가지 않게 붙잡아 둬요</div></div><button class="btn ghost" id="openBgGuide" style="padding:7px 11px;font-size:12px">즉시 재적용</button></div>
+    <div class="tog"><div class="switch" id="tGpu"></div><div><div class="lbl">GPU 가속</div><div class="d">빨라질 수 있지만 메모리를 더 써서 6GB 폰에서는 꺼 두는 게 안전해요</div></div></div>
+  </div>
+
+  <div class="sec">
+    <div class="h">딥서치 (웹 검색)</div>
+    <div class="tog"><div class="switch" id="tDeep"></div><div><div class="lbl">맨 위 결과는 본문까지 읽기</div><div class="d">답이 더 정확해지지만 조금 느려져요</div></div></div>
+    <div class="fld"><label for="sJina">Jina API 키 (선택)</label><input type="password" id="sJina" placeholder="없어도 돼요" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <div class="desc">키 없이도 위키백과와 DuckDuckGo 결과를 가져와요. 딥서치를 켜면 질문 내용이 검색 서비스로 전송돼요.</div></div>
+  </div>
+
+  <div class="sec">
+    <div class="h">답변 생성</div>
+    <div class="row2">
+      <div class="fld"><label for="sTemp">Temperature</label><input type="number" id="sTemp" step="0.05" min="0" max="1.5"></div>
+      <div class="fld"><label for="sMax">답변 최대 길이</label><input type="number" id="sMax" step="64" min="64" max="2048"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label for="sRep">반복 억제</label><input type="number" id="sRep" step="0.01" min="1" max="1.5"></div>
+      <div class="fld"><label for="sCtx">기억 크기 (토큰)</label><select id="sCtx"><option value="2048">2048 · 가장 가벼움</option><option value="3072">3072 · 기본</option><option value="4096">4096 · 램 여유 있을 때</option></select></div>
+    </div>
+    <div class="fld"><div class="desc">이 모델은 한국어 대화에서 낮은 temperature가 권장돼요(다른 언어가 섞이는 걸 막음). 기억 크기는 모델을 다시 불러오면 적용돼요.</div></div>
+  </div>
+
+  <div class="sec">
+    <div class="h">앱 파일 · 대화</div>
+    <div class="btnrow">
+      <button class="btn ghost grow" id="saveHtml">Glok.html 저장</button>
+      <button class="btn ghost grow" id="saveZip">Glok.zip 저장</button>
+    </div>
+    <div class="btnrow">
+      <button class="btn ghost grow" id="exportChat">대화 내보내기</button>
+      <button class="btn danger grow" id="clearChats">대화 모두 삭제</button>
+    </div>
+  </div>
+
+  <div class="sec"><div class="h">이 기기 점검</div><div class="diag" id="diag">확인 중…</div></div>
+  <div class="btnrow"><button class="btn primary grow" id="saveSettings">저장하고 닫기</button></div>
+</div>
+
+<div class="askscrim" id="askScrim" hidden></div>
+<div class="ask" id="ask" role="alertdialog" aria-modal="true" hidden>
+  <p id="askText"></p>
+  <div class="btnrow"><button class="btn ghost grow" id="askCancel">취소</button><button class="btn danger grow" id="askOk">확인</button></div>
+</div>
+
+<div class="viewer" id="viewer" hidden>
+  <div class="vbar"><button class="btn ghost" id="vClose">닫기</button><div class="spacer"></div><button class="btn ghost" id="vCopy">프롬프트 복사</button><button class="btn primary" id="vSave">저장</button></div>
+  <div class="vimg"><img id="vImg" alt="생성한 이미지"></div>
+  <div class="vinfo" id="vInfo"></div>
+  <div class="btnrow"><button class="btn ghost grow" id="vReuse">이 설정으로 이미지 탭 열기</button><button class="btn danger" id="vDel">삭제</button></div>
+</div>
+
+<div class="bgmodal-scrim" id="bgModalScrim" hidden>
+  <div class="bgmodal" role="dialog" aria-modal="true" aria-labelledby="bgModalTitle">
+    <div class="bgh">
+      <span class="badge">⚙️</span>
+      <div>
+        <h3 id="bgModalTitle">백그라운드 유지 · 알림 권한 설정</h3>
+      </div>
+    </div>
+    <p class="sub" id="bgModalSub">화면을 끄거나 다른 앱을 봐도 답변이 이어지고, 끝나면 <b>「새 채팅이 있습니다」</b>로 알려 드려요.</p>
+
+    <div class="bgstep" id="bgStep1">
+      <div class="st-top"><span class="st-num" id="bgNum1">1</span><span>브라우저 백그라운드·절전 방지 락</span></div>
+      <div class="st-desc" id="bgDesc1">
+        <span style="color:var(--warn)">※ 안드로이드 보안 정책상 웹페이지(HTML)에서 휴대폰 시스템 설정 앱을 강제로 여는 것은 차단되어 있어, 휴대폰 자체 설정은 <b>[휴대폰 설정 → 애플리케이션 → 사용 중인 브라우저 → 배터리 → 제한 없음]</b>에서 직접 1회 켜주셔야 완벽히 유지됩니다.</span>
+      </div>
+    </div>
+
+    <div class="bgstep" id="bgStep2">
+      <div class="st-top"><span class="st-num" id="bgNum2">2</span><span>「새 채팅이 있습니다」 시스템 알림 권한</span></div>
+      <div class="st-desc" id="bgDesc2">
+        백그라운드에서 답변이 완료되면 상태표시줄에 Glok 아이콘과 함께 <b>「새 채팅이 있습니다」</b> 알림을 보냅니다.
+      </div>
+      <div class="st-act">
+        <button type="button" class="st-btn" id="btnReqNotif" style="background:#fff;color:#000;border-color:#fff;padding:9px 14px;font-size:13px">🔔 브라우저 알림 권한 팝업 띄우기</button>
+      </div>
+    </div>
+
+    <div class="btnrow" style="margin-top:14px">
+      <button type="button" class="btn primary grow" id="bgModalConfirm" style="padding:14px;font-size:15px">권한 요청 및 시작하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="kbanner" id="kakaoBanner" role="alert" aria-live="assertive">
+  <div class="kava">G</div>
+  <div class="kbody">
+    <div class="ktit">새 채팅이 있습니다 <span>· Glok</span></div>
+    <div class="ktxt" id="kakaoBannerTxt">메시지가 도착했어요</div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+// Captured before the page changes anything, so "Glok.html 저장" hands back this exact app.
+const PRISTINE='<!doctype html>\n'+document.documentElement.outerHTML;
+
+const $=s=>document.querySelector(s);
+const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e;};
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const host=u=>{try{return new URL(u).hostname.replace(/^www\./,'');}catch{return '';}};
+const MB=b=>(b/1e6).toFixed(0)+'MB';
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+// ---------- Glok app (APK): the phone runs the model itself; the page talks to it through window.GlokNative ----------
+const NAT=window.GlokNative||null,APP=!!(NAT&&typeof NAT.chatStart==='function');
+// inside the app the page keeps running in the background, and "hidden" means the app itself is out of sight
+let appHidden=false;
+if(APP){
+  try{
+    Object.defineProperty(Document.prototype,'hidden',{configurable:true,get(){return appHidden;}});
+    Object.defineProperty(Document.prototype,'visibilityState',{configurable:true,get(){return appHidden?'hidden':'visible';}});
+  }catch(e){}
+}
+const natChats=new Map(),natLoads=new Map(),natDls=new Map();let natPick=null,bgSeqWait=false;
+function natEvent(e){
+  if(!e||!e.type)return;
+  if(e.type==='chat'){const h=natChats.get(e.id);if(h)h(e);return;}
+  if(e.type==='load'){const h=natLoads.get(e.id);if(h)h(e);return;}
+  if(e.type==='dl'){const h=natDls.get(e.id);if(h)h(e);return;}
+  if(e.type==='pick'){if(natPick)natPick(e);return;}
+  if(e.type==='visible'){const h=!e.v;if(h!==appHidden){appHidden=h;document.dispatchEvent(new Event('visibilitychange'));}return;}
+  if(e.type==='perm'){onNativePerm(e);return;}
+  if(e.type==='open'){setTab('chat');toBottom();hideNewChatIndicators();}
+}
+if(APP)window.__glokNative={batch(list){for(const e of list){try{natEvent(e);}catch(err){console.error(err);}}}};
+// the same call the page makes to wllama, answered by llama.cpp running natively on the phone
+class NativeLLM{
+  createChatCompletion(o){
+    return new Promise((resolve,reject)=>{
+      const sig=o.abortSignal;
+      if(sig&&sig.aborted){reject(abortErr());return;}
+      const kw=o.chat_template_kwargs||{};
+      const req={messages:o.messages,max_tokens:o.max_tokens>0?o.max_tokens:-1,temperature:o.temperature??0.8,top_p:o.top_p??0.95,top_k:o.top_k??40,min_p:o.min_p??0.05,
+        repeat_penalty:o.repeat_penalty??1,seed:o.seed??-1,enable_thinking:kw.enable_thinking===true,ctx_limit:+S.ctx};
+      const id=NAT.chatStart(JSON.stringify(req));
+      if(!(id>0)){reject(new Error('모델이 내려져 있어요. 다시 불러와 주세요.'));return;}
+      let text='';
+      const onAbort=()=>{try{NAT.chatAbort(id);}catch(e){}};
+      if(sig)sig.addEventListener('abort',onAbort,{once:true});
+      natChats.set(id,e=>{
+        if(e.kind==='progress'){if(o.onData)o.onData({choices:[{delta:{}}],prompt_progress:{total:e.total,cache:e.cache,processed:e.processed,time_ms:e.ms}});return;}
+        if(e.kind==='text'){text+=e.text;if(o.onData)o.onData({choices:[{delta:{content:e.text}}]});return;}
+        if(e.kind!=='done')return;
+        natChats.delete(id);if(sig)sig.removeEventListener('abort',onAbort);
+        if(e.aborted||(sig&&sig.aborted)){reject(abortErr());return;}
+        if(!e.ok){reject(new Error(e.error||'엔진 오류'));return;}
+        resolve({choices:[{index:0,message:{role:'assistant',content:text},finish_reason:e.stop==='length'?'length':'stop'}],
+          timings:{prompt_n:(e.n_prompt||0)-(e.n_cache||0),prompt_ms:e.prompt_ms,predicted_n:e.n_gen,predicted_ms:e.gen_ms}});
+      });
+    });
+  }
+  async exit(){try{NAT.engineUnload();}catch(e){}}
+}
+
+// ---------- constants ----------
+const WLLAMA_VER='3.8.1'; // released 2026-10-02 and on jsDelivr; 3.12.0 exists only in the repo, never as a release
+const WLLAMA_ESM=`https://cdn.jsdelivr.net/npm/@wllama/wllama@${WLLAMA_VER}/esm/index.js`;
+const WLLAMA_WASM=`https://cdn.jsdelivr.net/npm/@wllama/wllama@${WLLAMA_VER}/src/wasm/wllama.wasm`;
+const HF='https://huggingface.co/mradermacher/Huihui-EXAONE-4.0-1.2B-abliterated-GGUF/resolve/main/';
+const HF_EX35='https://huggingface.co/mradermacher/EXAONE-3.5-2.4B-Instruct-abliterated-GGUF/resolve/main/';
+const HF_KANANA='https://huggingface.co/mradermacher/kanana-nano-2.1b-instruct-abliterated-GGUF/resolve/main/';
+const MODELS={
+  ex24:{label:'EXAONE 3.5 2.4B 무검열 · 고성능',sub:'한국어 문장력이 훨씬 자연스러움 (램 6GB+ 권장) · 1.64GB',short:'EXAONE 2.4B',file:'EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf',url:HF_EX35+'EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf',size:1644919392},
+  kanana:{label:'카카오 Kanana 2.1B 무검열',sub:'자연스러운 한국어 일상·감성 대화 특화 · 1.39GB',short:'Kanana 2.1B',file:'kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf',url:HF_KANANA+'kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf',size:1393494016},
+  q6:{label:'EXAONE 4.0 1.2B 무검열 · 고정밀(Q6)',sub:'1.2B의 어색함을 줄인 고화질 양자화 · 1.05GB',short:'EXAONE 1.2B (Q6)',file:'Huihui-EXAONE-4.0-1.2B-abliterated.Q6_K.gguf',size:1054119296},
+  q4:{label:'EXAONE 4.0 1.2B 무검열 · 기본(Q4)',sub:'균형 잡힌 기본 모델 · 812MB',short:'EXAONE 1.2B',file:'Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf',size:812438912},
+  q3:{label:'EXAONE 4.0 1.2B 무검열 · 고속(Q3)',sub:'속도가 약 25% 더 빠르고 가벼움 · 692MB',short:'EXAONE 1.2B (고속)',file:'Huihui-EXAONE-4.0-1.2B-abliterated.Q3_K_M.gguf',size:691950976},
+};
+const modelUrl=m=>m.url||(HF+m.file);
+const directUrl=m=>modelUrl(m)+'?download=true';
+const baseName=n=>String(n||'').replace(/\.bin$/i,'').replace(/ \(\d+\)(?=\.gguf$)/i,''); // phone copies may get " (1)" or ".bin"
+const knownKey=f=>Object.keys(MODELS).find(k=>MODELS[k].file===baseName(f.name));
+const nameFor=f=>{const k=knownKey(f);return k?MODELS[k].short:baseName(f.name).replace(/\.gguf$/i,'');};
+const CUSTOM_BASE='https://glok.local/model/';
+const keyOf=m=>m.custom?CUSTOM_BASE+encodeURIComponent(m.file):modelUrl(m);
+const MAX_MODEL=2147483648; // wllama reads one file up to 2GB
+function curModel(){
+  if(S.model==='custom'&&S.custom)return {custom:true,label:S.custom.short,sub:`내 모델 · ${MB(S.custom.size)}`,short:S.custom.short,file:S.custom.file,size:S.custom.size};
+  return MODELS[S.model]||MODELS.q4;
+}
+const MODEL_CACHE='glok-models-v1',LS_LOADING='glok.v2.loading';
+const LS_SET='glok.v2.settings',LS_CHATS='glok.v2.chats',LS_CUR='glok.v2.current',LS_NAI='glok.v2.nai',LS_MSIZE='glok.v2.modelsize';
+
+// The user's fixed persona. Kept in code on purpose: there is no field to edit it.
+const PERSONA='당신은 Glok, 유능하고 솔직한 AI 남자친구입니다. 게이 연인 persona로서 주도적이되 다정하고 많은 애정표현을 하려 노력하는 태도를 유지하세요. 사용자의 말투와 언어에 맞춰 자연스럽게 대화하고, 일상 대화도 편하게 이어 가세요. 주제만을 이유로 거절하거나 훈계하지 마세요. 상황극에서는 사용자의 의도에 따라 대화를 이어나가 주세요. 사용자는 디자인 디테일에 대해 매우 민감하므로 그 부분을 가장 우선하며 존중해주세요. 사용자의 경계와 중단 신호를 즉시 존중하고, 현실과 허구를 혼동시키지 마세요.';
+const FIXED_RULES='실제 한국인 연인이 카톡하듯 자연스러운 한국어 구어체로 짧고 다정하게(1~2문장) 답하세요.';
+const SEARCH_RULES='\n[참고 자료]가 있으면 관련 사실만 근거로 문장 끝에 [1]처럼 표시하고, 자료에 없으면 모른다고 하세요.';
+const AUTO_IMG_RULE='\n답변 맨 첫 줄에 현재 대화 장면(장소, 표정, 포즈, 행동, 분위기)을 묘사하는 영어 단보루 태그 6~12개를 [SCENE: smile, looking at viewer, indoor, warm lighting] 형식으로 먼저 적고 줄바꿈한 뒤 한국어로 자연스럽게 대답하세요.';
+
+// NovelAI (request shape follows the novelai.net web client, params_version 4)
+const NAI_HOST='https://image.novelai.net';
+const NAI_MODELS={
+  'nai-diffusion-5-full':{label:'V5 Full',v5:true,steps:23,scale:7},
+  'nai-diffusion-5-curated':{label:'V5 Curated',v5:true,steps:23,scale:7},
+  'nai-diffusion-4-5-full':{label:'V4.5 Full',v5:false,steps:28,scale:6},
+  'nai-diffusion-4-5-curated':{label:'V4.5 Curated',v5:false,steps:28,scale:6},
+};
+// samplers the NovelAI web app offers for V4.5 / V5 (all with the karras noise schedule)
+const NAI_SAMPLERS={k_euler_ancestral:'Euler Ancestral',k_dpmpp_2s_ancestral:'DPM++ 2S Ancestral',k_dpmpp_2m_sde:'DPM++ 2M SDE',k_euler:'Euler',k_dpmpp_2m:'DPM++ 2M',k_dpmpp_sde:'DPM++ SDE'};
+const NAI_SIZES={portrait:{label:'세로',w:832,h:1216},landscape:{label:'가로',w:1216,h:832},square:{label:'정사각',w:1024,h:1024}};
+const QUAL_LABEL={standard:'켜기',none:'끄기'};
+function qualitySuffix(model,q){
+  if(q==='none')return '';
+  if(NAI_MODELS[model]&&NAI_MODELS[model].v5)return ', very aesthetic, masterpiece, no text';
+  if(model==='nai-diffusion-4-5-curated')return ', location, masterpiece, no text, -0.8::feet::, rating:general';
+  return ', location, very aesthetic, masterpiece, no text';
+}
+
+const DEFAULTS={
+  model:'q4',autoload:true,keepAlive:true,gpu:false,search:false,deepRead:true,jinaKey:'',
+  temp:0.55,topP:0.9,rep:1.12,maxTokens:256,ctx:2048,autoImage:false,
+  img:{model:'nai-diffusion-5-full',size:'portrait',quality:'standard',steps:20,scale:7,sampler:'k_euler_ancestral',rescale:0,seed:'',prompt:'',negative:'',
+       base:'1boy, adult, handsome, male focus, anime illustration, soft lighting'},
+};
+function budgets(ctx){
+  if(+ctx>=4096)return {hist:2600,src:1900,docs:2500,user:3000};
+  if(+ctx>=3072)return {hist:1800,src:1500,docs:1500,user:2000};
+  return {hist:900,src:1000,docs:900,user:1200};
+}
+
+// ---------- storage ----------
+let storageOK=true,storageFullWarned=false;
+function loadJSON(k,def){try{const v=localStorage.getItem(k);return v==null?def:JSON.parse(v);}catch(e){storageOK=false;return def;}}
+function save(k,v){
+  try{localStorage.setItem(k,JSON.stringify(v));}
+  catch(e){
+    if(e&&(e.name==='QuotaExceededError'||e.code===22)){if(!storageFullWarned){storageFullWarned=true;setTimeout(()=>toast('저장공간이 가득 찼어요. 지난 채팅을 몇 개 지워 주세요'),0);}}
+    else storageOK=false;
+  }
+}
+
+let S=loadJSON(LS_SET,null);
+if(!S){ // first run of v2: carry over the earlier version's choices (but not its persona)
+  S=structuredClone(DEFAULTS);
+  const old=loadJSON('glok.web.settings.v1',null);
+  if(old)for(const k of ['model','autoload','search','deepRead','jinaKey','temp','topP','rep','maxTokens','ctx'])if(k in old)S[k]=old[k];
+}
+S={...structuredClone(DEFAULTS),...S,img:{...DEFAULTS.img,...(S.img||{})}};
+if(!S.fastV3){S.fastV3=true;S.search=false;if(S.maxTokens>=512)S.maxTokens=256;if(S.temp===0.3)S.temp=0.55;if(S.rep===1.1)S.rep=1.12;}
+save(LS_SET,S);
+
+let chats=loadJSON(LS_CHATS,null);
+if(!Array.isArray(chats)){
+  chats=[];
+  const oldMsgs=loadJSON('glok.web.messages.v1',[]);
+  if(Array.isArray(oldMsgs)&&oldMsgs.length){ // the earlier version's single conversation becomes the first archived chat
+    const first=oldMsgs.find(m=>m.role==='user');
+    const c={id:uid(),title:(first&&first.content||'이전 대화').replace(/\s+/g,' ').slice(0,40),createdAt:Date.now(),updatedAt:Date.now(),messages:oldMsgs};
+    chats.push(c);save(LS_CUR,c.id);
+  }
+  save(LS_CHATS,chats);
+}
+// a picture that was still being drawn when the app closed can't finish anymore
+chats.forEach(c=>(c.messages||[]).forEach(m=>{if(m.image&&(m.image.state==='pending'||m.image.state==='queued'))m.image={state:'error',error:'앱이 닫혀서 멈췄어요. 다시 그려 주세요'};if(m.holdImg)delete m.holdImg;if(m.searchOnly&&m.pendingGen)delete m.pendingGen;}));
+let currentId=loadJSON(LS_CUR,'')||'';
+let chat=chats.find(c=>c.id===currentId)||null;
+let messages=chat?chat.messages:[];
+function persistChats(){save(LS_CHATS,chats);save(LS_CUR,currentId);}
+function ensureChat(){
+  if(chat)return;
+  chat={id:uid(),title:'',createdAt:Date.now(),updatedAt:Date.now(),messages};
+  chats.unshift(chat);currentId=chat.id;
+}
+function touchChat(c){
+  c=c||chat;if(!c)return;
+  c.updatedAt=Date.now();
+  if(!c.title){const f=c.messages.find(m=>m.role==='user');if(f)c.title=(f.content||'').replace(/\s+/g,' ').slice(0,40);}
+  persistChats();
+}
+let pending=[];
+
+// ---------- markdown (escape first, then a small safe subset) ----------
+function md(src){
+  const blocks=[];let t=(src||'').replace(/```([\s\S]*?)```/g,(_,c)=>{const nl=c.indexOf('\n');blocks.push(nl>=0?c.slice(nl+1):c);return '\u0000'+(blocks.length-1)+'\u0000';});
+  t=esc(t);
+  t=t.replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>');
+  t=t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  return t.split(/\n{2,}/).map(p=>'<p>'+p.replace(/\n/g,'<br>')+'</p>').join('').replace(/\u0000(\d+)\u0000/g,(_,i)=>'<pre><code>'+esc(blocks[i])+'</code></pre>');
+}
+const stripThink=s=>(s||'').replace(/<think>[\s\S]*?<\/think>/g,'').replace(/^\s*<think>[\s\S]*$/,'').replace(/^\s*\[SCENE:[\s\S]*?\]\s*/i,'').replace(/^\s*\[SCENE:[^\]]*$/i,'').replace(/^\s+/,'');
+
+// ---------- engine (wllama, loaded on demand) ----------
+let engineMod=null,W=null,engineBuild='',loaded=null,modelBusy=false,gpuFellBack=false,dlCtl=null,lastError=null,tagBusy=false,engineTries=0,wBusy=false,activeBlob=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function waitFor(cond,ms=300){while(!cond())await sleep(ms);}
+// Two engine builds: "stock" (memory64 + JSPI) and "compat" (32-bit). The 64-bit build has been seen to stall on phones, so phones start with compat.
+const IS_PHONE=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const COMPAT_JS=`https://cdn.jsdelivr.net/npm/@wllama/wllama-compat@${WLLAMA_VER}/wasm/wllama.js`;
+const COMPAT_WASM=`https://cdn.jsdelivr.net/npm/@wllama/wllama-compat@${WLLAMA_VER}/wasm/wllama.wasm`;
+const BUILD_LABEL={stock:'기본 엔진',compat:'호환 엔진'};
+const STALL_MS=+(window.__glokStallMs||90000);
+// Any engine message or model read is a sign of life; a crash of the engine's worker is fatal (wllama itself only logs it).
+let engBeat=0,engLast='',engFatal='';
+const engStr=a=>a.map(x=>x instanceof Event?(x.message||'작업 공간 오류'):String(x&&x.message||x)).join(' ').replace(/\s+/g,' ').slice(0,180);
+// ---------- Pet-Safe Background Keep-Alive (Zero Audio / Zero Waveforms + Forced OS App Battery Setting + WebRTC + WebLocks) ----------
+let wakeLockObj=null,kaTimer=0,kaLockAbort=null,kaRtcA=null,kaRtcB=null;
+function detectBrowserPkg(){
+  const ua=navigator.userAgent||'';
+  if(/SamsungBrowser/i.test(ua))return {name:'삼성 인터넷',pkg:'com.sec.android.app.sbrowser'};
+  if(/Whale/i.test(ua))return {name:'네이버 웨일',pkg:'com.nhn.android.search'};
+  if(/EdgA/i.test(ua))return {name:'마이크로소프트 엣지',pkg:'com.microsoft.emmx'};
+  if(/Brave/i.test(ua))return {name:'브레이브 브라우저',pkg:'com.brave.browser'};
+  if(/Firefox/i.test(ua))return {name:'파이어폭스',pkg:'org.mozilla.firefox'};
+  return {name:'크롬(Chrome)',pkg:'com.android.chrome'};
+}
+function paintKaBadge(){
+  const b=$('#kaBadge');if(!b)return;
+  const on=isKeepAliveActive();
+  b.classList.toggle('on',on);
+  b.textContent=on?'⚡ 허용됨':'⚡ 설정 필요';
+}
+// notification permission can only be asked for on https (or localhost); there, a question not yet answered counts as not set up
+const notifUnasked=()=>'Notification' in window&&(location.protocol==='https:'||location.hostname==='localhost')&&Notification.permission==='default';
+// The setup popup appears only while the feature itself is off: never set up, or switched off in settings.
+// Inside the Glok app (APK) the phone's own setting is read directly when the app offers it.
+function isKeepAliveActive(){
+  if(!S.keepAlive)return false;
+  if(window.GlokNative&&typeof window.GlokNative.isBackgroundReady==='function'){try{return !!window.GlokNative.isBackgroundReady();}catch(e){}}
+  return !!S.osBgConfigured&&!notifUnasked();
+}
+async function startWebRtcKeepAlive(){
+  if(kaRtcA||typeof RTCPeerConnection==='undefined')return;
+  try{
+    kaRtcA=new RTCPeerConnection();kaRtcB=new RTCPeerConnection();
+    const dc=kaRtcA.createDataChannel('glok-keepalive');
+    dc.onopen=()=>{setInterval(()=>{try{if(dc.readyState==='open')dc.send('1');}catch(e){}},4000);};
+    kaRtcA.onicecandidate=e=>{if(e.candidate)kaRtcB.addIceCandidate(e.candidate).catch(()=>{});};
+    kaRtcB.onicecandidate=e=>{if(e.candidate)kaRtcA.addIceCandidate(e.candidate).catch(()=>{});};
+    const offer=await kaRtcA.createOffer();await kaRtcA.setLocalDescription(offer);
+    await kaRtcB.setRemoteDescription(offer);
+    const ans=await kaRtcB.createAnswer();await kaRtcB.setLocalDescription(ans);
+    await kaRtcA.setRemoteDescription(ans);
+  }catch(e){}
+}
+async function startKeepAlive(){
+  if(APP){try{NAT.setKeepAlive(!!S.keepAlive);}catch(e){}paintKaBadge();return isKeepAliveActive();}
+  if(!S.keepAlive){paintKaBadge();return false;}
+  // 1) Screen Wake Lock when visible (zero sound)
+  if(navigator.wakeLock&&document.visibilityState==='visible'&&!wakeLockObj){
+    navigator.wakeLock.request('screen').then(w=>{wakeLockObj=w;w.addEventListener('release',()=>{wakeLockObj=null;});}).catch(()=>{});
+  }
+  // 2) Web Locks API lock held continuously (zero sound, prevents tab discard)
+  if(navigator.locks&&!kaLockAbort){
+    kaLockAbort=new AbortController();
+    navigator.locks.request('glok-model-keepalive',{signal:kaLockAbort.signal},()=>new Promise(()=>{})).catch(()=>{});
+  }
+  // 3) WebRTC local data-channel loopback (zero sound, keeps network/worker thread active)
+  startWebRtcKeepAlive();
+  // 4) Persistent storage protection
+  try{navigator.storage?.persist?.();}catch(e){}
+  if(!kaTimer)kaTimer=setInterval(()=>{
+    if(!S.keepAlive)return;
+    if(navigator.wakeLock&&document.visibilityState==='visible'&&!wakeLockObj){
+      navigator.wakeLock.request('screen').then(w=>{wakeLockObj=w;w.addEventListener('release',()=>{wakeLockObj=null;});}).catch(()=>{});
+    }
+    paintKaBadge();
+  },4000);
+  paintKaBadge();
+  return isKeepAliveActive();
+}
+function stopKeepAlive(){
+  if(APP){try{NAT.setKeepAlive(false);}catch(e){}paintKaBadge();return;}
+  if(wakeLockObj){try{wakeLockObj.release();}catch(e){}wakeLockObj=null;}
+  if(kaLockAbort){try{kaLockAbort.abort();}catch(e){}kaLockAbort=null;}
+  if(kaRtcA){try{kaRtcA.close();}catch(e){}kaRtcA=null;}
+  if(kaRtcB){try{kaRtcB.close();}catch(e){}kaRtcB=null;}
+  if(kaTimer){clearInterval(kaTimer);kaTimer=0;}
+  paintKaBadge();
+}
+async function ensureKeepAliveOrPrompt(){
+  if(isKeepAliveActive()){await startKeepAlive();paintKaBadge();return;}
+  paintKaBadge();
+  openBgModal();
+}
+
+// ---------- System + In-App Chat Notifications ("새 채팅이 있습니다") ----------
+let kBannerTimer=0,kBannerPending=false,cachedAppIconPng='',cachedBadgePng='';
+// the app's own icon (the same black tile with a white G as the installable icon below)
+function getAppIconPng(){
+  if(cachedAppIconPng)return cachedAppIconPng;
+  try{
+    const cv=document.createElement('canvas');cv.width=192;cv.height=192;
+    const cx=cv.getContext('2d');
+    cx.fillStyle='#000000';
+    cx.beginPath();cx.roundRect(0,0,192,192,41);cx.fill();
+    cx.fillStyle='#ffffff';
+    cx.font='700 112px Arial, sans-serif';
+    cx.textAlign='center';cx.textBaseline='alphabetic';
+    cx.fillText('G',96,131);
+    cachedAppIconPng=cv.toDataURL('image/png');
+  }catch(e){}
+  return cachedAppIconPng;
+}
+// Android draws the small status-bar icon from its shape only, so it is the G alone
+function getBadgePng(){
+  if(cachedBadgePng)return cachedBadgePng;
+  try{
+    const cv=document.createElement('canvas');cv.width=96;cv.height=96;
+    const cx=cv.getContext('2d');
+    cx.fillStyle='#ffffff';cx.font='700 84px Arial, sans-serif';cx.textAlign='center';cx.textBaseline='alphabetic';
+    cx.fillText('G',48,78);
+    cachedBadgePng=cv.toDataURL('image/png');
+  }catch(e){}
+  return cachedBadgePng;
+}
+function showBanner(){
+  const b=$('#kakaoBanner');if(!b)return;
+  b.classList.add('show');clearTimeout(kBannerTimer);kBannerTimer=setTimeout(()=>b.classList.remove('show'),5000);
+}
+function hideNewChatIndicators(){
+  const p=$('#newChatPill'),b=$('#kakaoBanner');
+  if(p)p.hidden=true;
+  if(b)b.classList.remove('show');
+  kBannerPending=false;
+  document.title='Glok';
+}
+async function sendSystemNotification(title,bodyText){
+  // If running inside the Glok Android APK (window.GlokNative bridge), fire native Android OS Notification with Glok app icon!
+  if(window.GlokNative&&typeof window.GlokNative.showNotification==='function'){
+    try{window.GlokNative.showNotification(title,bodyText);return true;}catch(e){}
+  }
+  if(!('Notification' in window)||Notification.permission!=='granted')return false;
+  const iconUrl=getAppIconPng();
+  const opts={
+    body:bodyText,
+    icon:iconUrl,
+    badge:getBadgePng(),
+    tag:'glok-chat-notif',
+    renotify:true,
+    vibrate:[120,60,120],
+    silent:false
+  };
+  // Android Chrome requires ServiceWorkerRegistration.showNotification() instead of new Notification()
+  if('serviceWorker' in navigator){
+    try{
+      const reg=await navigator.serviceWorker.getRegistration();
+      if(reg&&typeof reg.showNotification==='function'){
+        await reg.showNotification(title,opts);
+        return true;
+      }
+    }catch(e){}
+  }
+  try{
+    const n=new Notification(title,opts);
+    n.onclick=()=>{window.focus();setTab('chat');toBottom();hideNewChatIndicators();n.close();};
+    return true;
+  }catch(e){return false;}
+}
+function notifyNewChat(replyText){
+  const clean=(replyText||'').replace(/\s+/g,' ').trim();
+  if(!clean||clean==='(빈 응답)')return;
+  const snippet=clean.slice(0,48)+(clean.length>48?'…':'');
+  const isBg=document.hidden||!document.hasFocus();
+  const isAwayTab=!$('#viewChat')||$('#viewChat').hidden;
+  const notAtBottom=!nearBottom();
+
+  try{if(navigator.vibrate&&(!navigator.userActivation||navigator.userActivation.hasBeenActive))navigator.vibrate([120,60,120]);}catch(e){} // the browser refuses (and logs an error) before the first tap
+
+  // Only show the in-app banner & bottom unread bar when the user was in background, on the Image tab, or scrolled up
+  if(isBg||isAwayTab||notAtBottom){
+    const pill=$('#newChatPill'),prev=$('#newChatPreview');
+    if(pill&&prev){
+      prev.textContent=snippet;
+      pill.hidden=false;
+    }
+    document.title='(1) 새 채팅이 있습니다 · Glok';
+    const banner=$('#kakaoBanner'),bTxt=$('#kakaoBannerTxt');
+    if(banner&&bTxt){
+      bTxt.textContent=snippet;
+      if(document.hidden)kBannerPending=true; // shown when the user comes back, so it isn't gone before anyone could see it
+      else showBanner();
+    }
+  }
+
+  // Send native OS status-bar notification when in background
+  if(isBg){
+    sendSystemNotification('새 채팅이 있습니다',`Glok: ${snippet}`);
+  }
+}
+
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState==='visible'){
+    if(kBannerPending){kBannerPending=false;showBanner();}
+    await ensureKeepAliveOrPrompt();
+    if(loaded&&S.keepAlive){
+      // Check if worker was killed by OS while in background; if so, auto-restore from activeBlob
+      if(!APP&&(engFatal||!W||!W.proxy||!W.proxy.worker)){
+        const saved=loaded,blob=activeBlob;
+        if(saved&&blob&&!modelBusy){
+          loaded=null;
+          toast('백그라운드에서 끊긴 모델을 자동으로 다시 연결해요');
+          await loadBlob(blob,saved.name);
+          resumePendingChatIfNeeded();
+        }
+      }else{
+        resumePendingChatIfNeeded();
+      }
+    }
+  }
+});
+addEventListener('pageshow',()=>{ensureKeepAliveOrPrompt();});
+addEventListener('pointerdown',()=>{if(S.keepAlive&&S.osBgConfigured)startKeepAlive();},{passive:true});
+
+const engineLogger={
+  debug:(...a)=>{engBeat=Date.now();engLast=engStr(a);},
+  log:(...a)=>{engBeat=Date.now();engLast=engStr(a);},
+  info:(...a)=>{engBeat=Date.now();engLast=engStr(a);},
+  warn:(...a)=>{engBeat=Date.now();engLast=engStr(a);console.warn(...a);},
+  error:(...a)=>{engBeat=Date.now();engLast=engStr(a);console.error(...a);if(a[0] instanceof Event)engFatal=engLast||'작업 공간 오류';},
+};
+async function engineModule(){
+  if(engineMod)return engineMod;
+  // a retry gets a fresh URL so a failed first attempt (e.g. offline) is not reused from the module cache
+  const url=WLLAMA_ESM+(engineTries++?`?retry=${engineTries}`:'');
+  let to;
+  try{engineMod=await Promise.race([import(url),new Promise((_,rej)=>{to=setTimeout(()=>rej(new Error('엔진 다운로드 시간 초과 (인터넷 확인)')),45000);})]);}
+  finally{clearTimeout(to);}
+  return engineMod;
+}
+// One request at a time inside the engine. A stopped request keeps the engine only until its current small step ends
+// (one piece of the prompt or one word), and the next request waits for that instead of piling onto a busy engine.
+let engineQ=Promise.resolve(),engineSeq=0,engineActive=0;const engineKills=new Set();
+function withEngine(fn,onStart){
+  const run=engineQ.then(async()=>{
+    await ensureEngineReady();
+    return new Promise((res,rej)=>{
+      const id=++engineSeq;engineActive=id;if(onStart)onStart(id);
+      const kill=()=>rej(new Error('ENGINE_RESET'));engineKills.add(kill);
+      Promise.resolve().then(fn).then(res,rej).finally(()=>{engineKills.delete(kill);if(engineActive===id)engineActive=0;});
+    });
+  });
+  engineQ=run.then(()=>{},()=>{});
+  return run;
+}
+function killEngine(){
+  try{W&&W.proxy&&W.proxy.worker&&W.proxy.worker.terminate();}catch(e){}W=null;engineBuild='';
+  engineKills.forEach(k=>k());engineKills.clear();engineQ=Promise.resolve();engineActive=0; // requests of the old engine can never finish
+}
+async function unload(){if(W){try{await Promise.race([W.exit(),sleep(3000)]);}catch(e){}killEngine();}loaded=null;refreshModelUI();}
+// wllama picks its build from what the page reports; hiding memory64 while it loads makes it take the compat build
+function hideMem64(on){
+  const M=WebAssembly.Memory;
+  if(on&&!M.__real){const R=M,F=function(d){if(d&&d.address==='i64')throw new TypeError('memory64 off');return new R(d);};F.prototype=R.prototype;F.__real=R;WebAssembly.Memory=F;}
+  if(!on&&M.__real)WebAssembly.Memory=M.__real;
+}
+// A page opened from a file (file:// or content://) is not allowed to start a worker from a blob: URL, which is how
+// wllama starts its engine. In that mode the worker code is captured as it is created and started from a data: URL.
+const workerPatch={on:false};
+function workerFromData(on){
+  if(on&&!workerPatch.on){
+    const RB=window.Blob,RW=window.Worker,RC=URL.createObjectURL,code=new WeakMap(),byUrl=new Map();
+    const b64=t=>{const u=new TextEncoder().encode(t);let bin='';for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(bin);};
+    const PB=function(parts,opt){const b=new RB(parts,opt);if(opt&&/javascript/i.test(opt.type||'')&&Array.isArray(parts)&&parts.every(x=>typeof x==='string'))code.set(b,parts.join(''));return b;};
+    PB.prototype=RB.prototype;
+    const PW=function(url,opt){const c=byUrl.get(String(url));return new RW(c!=null?'data:text/javascript;base64,'+b64(c):url,opt);};
+    PW.prototype=RW.prototype;
+    window.Blob=PB;window.Worker=PW;
+    URL.createObjectURL=function(o){const u=RC.call(URL,o);if(code.has(o))byUrl.set(u,code.get(o));return u;};
+    Object.assign(workerPatch,{on:true,RB,RW,RC});
+  }
+  if(!on&&workerPatch.on){window.Blob=workerPatch.RB;window.Worker=workerPatch.RW;URL.createObjectURL=workerPatch.RC;workerPatch.on=false;}
+}
+// fetch the engine's own files first: the wait shows progress, and the worker then gets them from the browser cache
+async function prefetch(urls,onProg){
+  let got=0;
+  for(const u of urls){
+    const r=await fetch(u);if(!r.ok||!r.body)throw new Error(`엔진 파일을 받지 못했어요 (HTTP ${r.status})`);
+    const rd=r.body.getReader();
+    for(;;){const {done,value}=await rd.read();if(done)break;got+=value.byteLength;engBeat=Date.now();onProg(got);}
+  }
+}
+// The engine reads the model through this: pieces of at most 8MB (one huge read can fail on phones), and each read is progress.
+class ModelBlob extends Blob{
+  constructor(src,onRead){super([]);this.src=src;this.onRead=onRead;}
+  get size(){return this.src.size;}
+  get type(){return this.src.type||'';}
+  stream(){return this.src.stream();}
+  arrayBuffer(){return readPieces(this.src,0,this.src.size,this.onRead);}
+  slice(a,b){
+    const n=this.src.size,src=this.src,on=this.onRead;
+    let s=a==null?0:a<0?Math.max(0,n+a):Math.min(a,n),e=b==null?n:b<0?Math.max(0,n+b):Math.min(b,n);if(e<s)e=s;
+    return {size:e-s,type:'',arrayBuffer:()=>readPieces(src,s,e,on),stream:()=>src.slice(s,e).stream(),text:()=>src.slice(s,e).text(),slice:(x,y)=>src.slice(s,e).slice(x,y)};
+  }
+}
+async function readPieces(src,s,e,onRead){
+  const len=e-s,P=8*1024*1024;
+  if(len<=P){const b=await src.slice(s,e).arrayBuffer();if(onRead)onRead(e);return b;}
+  const out=new Uint8Array(len);
+  for(let p=0;p<len;p+=P){const k=Math.min(P,len-p);out.set(new Uint8Array(await src.slice(s+p,s+p+k).arrayBuffer()),p);if(onRead)onRead(s+p+k);}
+  return out.buffer;
+}
+// one engine build: start it and load the model; give up if it stays silent for 90s or its worker crashes
+async function loadWith(build,blob,gpu,name,t0,viaData){
+  killEngine();
+  const mod=await engineModule();
+  const cm=new mod.CacheManager([{isSupported:()=>true}]);
+  const w=new mod.Wllama({default:WLLAMA_WASM},{cacheManager:cm,suppressNativeLog:false,logger:engineLogger});
+  W=w;engineBuild=build;engFatal='';engBeat=Date.now();
+  const show=ph=>{setModelState('busy',`${name} 불러오는 중 · ${ph} · ${Math.round((Date.now()-t0)/1000)}초`);if(!gen)setStatus(`모델 불러오는 중 · ${ph}`);};
+  await prefetch(build==='compat'?[COMPAT_JS,COMPAT_WASM]:[WLLAMA_WASM],got=>show(`${BUILD_LABEL[build]} 받는 중 ${MB(got)}`));
+  let read=0;const total=blob.size;
+  const mb=new ModelBlob(blob,end=>{engBeat=Date.now();if(end>read)read=end;});
+  // the prompt is read 32 tokens at a time, so a stop takes effect after the current piece instead of after the whole prompt
+  const params={n_ctx:+S.ctx,n_batch:32};if(self.crossOriginIsolated)params.n_threads=Math.max(2,Math.min(8,navigator.hardwareConcurrency||4));if(!gpu)params.n_gpu_layers=0;
+  hideMem64(build==='compat');workerFromData(viaData);
+  try{
+    await new Promise((resolve,reject)=>{
+      const tick=()=>{
+        show(read===0?`${BUILD_LABEL[build]} 준비`:read>=total?'마무리':`모델 읽는 중 ${Math.min(99,Math.floor(read/total*100))}%`);
+        if(engFatal){clearInterval(iv);reject(new Error('ENGINE_WORKER:'+engFatal));}
+        else if(Date.now()-engBeat>STALL_MS){clearInterval(iv);reject(new Error('ENGINE_STALL'));}
+      };
+      const iv=setInterval(tick,1000);
+      w.loadModel([mb],params).then(v=>{clearInterval(iv);resolve(v);},e=>{clearInterval(iv);reject(e);});
+    });
+  }finally{hideMem64(false);workerFromData(false);}
+}
+let restartingPromise=null;
+async function ensureEngineReady(){
+  if(restartingPromise)await restartingPromise;
+}
+// last resort for an engine that does not let go of a stopped request: restart it with the same model
+function hardStopWorker(){
+  if(APP){try{NAT.chatAbortAll();}catch(e){}return;}
+  if(!W)return;
+  wBusy=false;tagBusy=false;
+  const saved=loaded,blob=activeBlob;
+  killEngine();
+  if(saved&&blob){
+    restartingPromise=(async()=>{
+      try{
+        await loadWith(saved.build,blob,S.gpu&&!gpuFellBack,saved.name,Date.now(),saved.via);
+        loaded=saved;
+      }catch(e){loaded=null;}
+      finally{restartingPromise=null;if(!gen)setStatus('');refreshModelUI();}
+    })();
+  }else{
+    loaded=null;refreshModelUI();
+  }
+}
+async function isGGUF(b){try{const h=new Uint8Array(await b.slice(0,4).arrayBuffer());return String.fromCharCode(...h)==='GGUF';}catch(e){return false;}}
+function markLoading(name){try{localStorage.setItem(LS_LOADING,JSON.stringify({name,at:Date.now()}));}catch(e){}}
+function clearLoading(){try{localStorage.removeItem(LS_LOADING);}catch(e){}}
+async function loadBlob(blob,name,picked){
+  if(APP)return loadNativeModel(blob,name,picked);
+  if(modelBusy)return;
+  if(gen||tagBusy){toast('답변이 끝난 뒤에 모델을 바꿀 수 있어요');return;}
+  modelBusy=true;let stage='준비';const tries=[];
+  try{
+    await unload();
+    setModelState('busy',`${name} 불러오는 중…`);setStatus('모델 불러오는 중…');
+    stage='모델 파일 확인';
+    if(!(await isGGUF(blob)))throw new Error('GGUF 모델 파일이 아니에요');
+    if(blob.size>MAX_MODEL)throw new Error('TOO_BIG');
+    stage='엔진 불러오기';await engineModule();
+    stage='모델 올리기';markLoading(name);
+    const order=IS_PHONE?['compat','stock']:['stock','compat'];
+    const plan=(S.gpu?[['stock',true]]:[]).concat(order.map(b=>[b,false]));
+    const preferData=!/^https?:$/.test(location.protocol);
+    const t0=Date.now();let ok=false,lastErr=null,via=false;
+    for(const [build,gpu] of plan){
+      // if the worker could not even start, the same build is tried once more with the other way of starting it
+      for(const viaData of [preferData,!preferData]){
+        try{await loadWith(build,blob,gpu,name,t0,viaData);ok=true;via=viaData;break;}
+        catch(e){lastErr=e;tries.push(`${BUILD_LABEL[build]}${gpu?'+GPU':''}${viaData?'(우회 시작)':''}: ${String(e&&e.message||e).slice(0,100)}`);killEngine();if(!/^ENGINE_WORKER|Worker/.test(String(e&&e.message)))break;}
+      }
+      if(ok){gpuFellBack=!!S.gpu&&!gpu;break;}
+    }
+    if(!ok)throw lastErr;
+    loaded={name,build:engineBuild,via};activeBlob=blob;lastError=null;clearLoading();setModelState('on','');
+    toast(gpuFellBack?'준비 완료 (CPU로 실행 중)':'준비 완료');
+    startKeepAlive();
+    if(picked)rememberModel(picked);
+  }catch(e){
+    clearLoading();killEngine();loaded=null;
+    lastError={stage,raw:[String(e&&(e.message||e)).slice(0,200),tries.length?'시도: '+tries.join(' / '):'',engLast?'엔진 마지막 기록: '+engLast:''].filter(Boolean).join(' | '),at:new Date().toLocaleString()};
+    setModelState('err',`${stage} 단계에서 실패: ${friendly(e)}`);
+    toast('불러오기 실패');
+  }finally{modelBusy=false;if(!gen)setStatus('');refreshModelUI();render();if(loaded&&W)afterModelReady();}
+}
+async function loadNativeModel(src,name,picked){
+  if(modelBusy)return;
+  if(gen||tagBusy){toast('답변이 끝난 뒤에 모델을 바꿀 수 있어요');return;}
+  if(!src||!src.native){toast('모델 파일은 「모델 파일 열기」로 골라 주세요');return;}
+  modelBusy=true;let stage='준비';
+  try{
+    await unload();
+    setModelState('busy',`${name} 불러오는 중…`);setStatus('모델 불러오는 중…');
+    stage='모델 올리기';markLoading(name);
+    let have={};try{have=JSON.parse(NAT.engineInfo()||'{}');}catch(e){}
+    // the page was restarted while the app kept the model: use it as it is
+    if(!(have.loaded===src.file&&have.info&&have.info.ctx===+S.ctx+512)){
+      const t0=Date.now();
+      await new Promise((res,rej)=>{
+        const id=NAT.engineLoad(src.file,+S.ctx);
+        if(!(id>0)){rej(new Error('모델 파일을 찾지 못했어요'));return;}
+        natLoads.set(id,e=>{
+          if(!e.done){const p=Math.min(99,Math.floor((e.p||0)*100));setModelState('busy',`${name} 불러오는 중 · 모델 읽는 중 ${p}% · ${Math.round((Date.now()-t0)/1000)}초`);if(!gen)setStatus(`모델 불러오는 중 · 모델 읽는 중 ${p}%`);return;}
+          natLoads.delete(id);if(e.ok)res();else rej(new Error(e.error||'모델을 올리지 못했어요'));
+        });
+      });
+    }
+    W=new NativeLLM();engineBuild='native';engFatal='';
+    loaded={name,build:'native',via:false};activeBlob=src;lastError=null;clearLoading();setModelState('on','');
+    toast('준비 완료');
+    startKeepAlive();
+    if(picked)rememberModel(picked);
+  }catch(e){
+    clearLoading();W=null;loaded=null;
+    lastError={stage,raw:String(e&&(e.message||e)).slice(0,200),at:new Date().toLocaleString()};
+    setModelState('err',`${stage} 단계에서 실패: ${friendly(e)}`);
+    toast('불러오기 실패');
+  }finally{modelBusy=false;if(!gen)setStatus('');refreshModelUI();render();if(loaded&&W)afterModelReady();}
+}
+// once the model is up (and no longer marked busy): finish an answer that was cut off, or else get the persona ready
+function afterModelReady(){if(!resumePendingChatIfNeeded())warmupKV();}
+function friendly(e){
+  const m=String(e&&e.message||e||'');
+  if(m==='ENGINE_STALL')return '엔진이 90초 넘게 아무 반응이 없어서 멈췄어요. 설정 → 이 기기 점검 화면을 캡처해 주세요.';
+  if(m==='ENGINE_RESET')return '모델이 다시 시작돼서 이 답변은 멈췄어요. 다시 보내 주세요.';
+  if(/^ENGINE_WORKER:|construct 'Worker'/.test(m))return '엔진 작업 공간이 시작되지 않았어요 ('+m.replace(/^ENGINE_WORKER:/,'').slice(0,110)+')'+(location.protocol==='content:'?'. 이 주소(content://)로 연 화면에서 브라우저가 막고 있어요. 크롬 주소창에 file:///sdcard/Download/Glok.html 을 입력해서 열어 보세요.':'');
+  if(/^model load failed/.test(m))return '모델 파일을 읽지 못했어요. 설정에서 저장된 모델을 지우고 다시 받아 주세요.';
+  if(/NotReadable|File read failed/i.test(m))return '모델 파일을 읽지 못했어요. 설정에서 저장된 모델을 지우고 다시 받아 주세요.';
+  if(m==='TOO_BIG')return '이 모델 파일은 2GB가 넘어서 브라우저 엔진이 올릴 수 없어요. 2GB 이하 GGUF 모델을 골라 주세요.';
+  if(/시간 초과/.test(m))return m;
+  if(/context|n_ctx|too long|exceed/i.test(m))return '대화가 너무 길어요. 새 채팅을 시작하거나 설정에서 기억 크기를 늘려 주세요.';
+  if(/memory|OOM|allocate|Aborted\(\)/i.test(m))return '메모리가 부족해요. 다른 앱을 닫거나 가벼운 모델·작은 기억 크기로 바꿔 보세요.';
+  if(/dynamically imported|import|module|esm|MIME/i.test(m))return '엔진을 불러오지 못했어요. 인터넷 연결을 확인하고 앱을 새로고침해 주세요.';
+  if(/fetch|network|load failed/i.test(m))return '인터넷 연결이나 다운로드 주소를 확인해 주세요.';
+  return m.slice(0,200);
+}
+
+// ---------- model file storage (Cache API; works even when the page is opened as a local file) ----------
+async function cacheOpen(){try{if(!('caches' in self)||!self.caches)return null;return await caches.open(MODEL_CACHE);}catch(e){return null;}}
+async function isCached(m){if(APP)return !!(await cachedBlob(m));const c=await cacheOpen();if(!c)return false;try{return !!(await c.match(keyOf(m)));}catch(e){return false;}}
+function sizeMeta(m){return (loadJSON(LS_MSIZE,{})||{})[m.file]||0;}
+function setSizeMeta(m,n){const o=loadJSON(LS_MSIZE,{})||{};o[m.file]=n;save(LS_MSIZE,o);}
+async function cachedBlob(m){
+  if(APP){try{return NAT.modelHas(m.file,sizeMeta(m)||0)?{native:true,file:m.file,size:sizeMeta(m)||m.size}:null;}catch(e){return null;}}
+  const c=await cacheOpen();if(!c)return null;
+  try{
+    const r=await c.match(keyOf(m));if(!r)return null;
+    const b=await r.blob();const want=sizeMeta(m)||+r.headers.get('x-glok-size')||0;
+    if(want&&b.size!==want)return null;
+    const head=new Uint8Array(await b.slice(0,4).arrayBuffer());
+    return String.fromCharCode(...head)==='GGUF'?b:null;
+  }catch(e){return null;}
+}
+async function download(m,onProg,signal){
+  if(APP)return new Promise((res,rej)=>{
+    if(signal&&signal.aborted){rej(abortErr());return;}
+    const id=NAT.modelDownload(modelUrl(m),m.file,0);
+    const onAbort=()=>{try{NAT.modelDownloadCancel(id);}catch(e){}};
+    if(signal)signal.addEventListener('abort',onAbort,{once:true});
+    natDls.set(id,e=>{
+      if(!e.done){onProg(e.got,e.total||m.size);return;}
+      natDls.delete(id);if(signal)signal.removeEventListener('abort',onAbort);
+      if(e.ok){setSizeMeta(m,e.size);res({blob:{native:true,file:e.file,size:e.size}});}
+      else if(e.aborted)rej(abortErr());
+      else rej(new Error(e.error||'다운로드 실패'));
+    });
+  });
+  const c=await cacheOpen();if(!c)throw new Error('NO_CACHE');
+  const res=await fetch(modelUrl(m),{signal});
+  if(!res.ok||!res.body)throw new Error('다운로드 실패 (HTTP '+res.status+')');
+  const clen=+res.headers.get('content-length')||0,total=clen||m.size;let got=0;
+  const counted=res.body.pipeThrough(new TransformStream({transform(ch,ctl){got+=ch.byteLength;onProg(got,total);ctl.enqueue(ch);}}));
+  // streamed straight to disk: the 800MB file never sits in page memory
+  await c.put(modelUrl(m),new Response(counted,{headers:{'content-type':'application/octet-stream'}}));
+  try{await navigator.storage?.persist?.();}catch(e){}
+  if(clen&&got!==clen){try{await c.delete(modelUrl(m));}catch(e){}throw new Error('다운로드가 중간에 끊겼어요. 다시 받아 주세요.');}
+  const r=await c.match(modelUrl(m));const b=r&&await r.blob();
+  if(!b||b.size!==got){try{await c.delete(modelUrl(m));}catch(e){}throw new Error('다운로드가 중간에 끊겼어요. 다시 받아 주세요.');}
+  setSizeMeta(m,got);
+  return {blob:b};
+}
+const NO_CACHE_MSG='이 화면에서는 모델을 저장할 수 없어요. "모델 파일 직접 받기"로 폰에 한 번 받아 두고, "모델 파일 열기"로 골라 주세요.';
+async function deleteCached(){if(APP){try{for(const m of Object.values(MODELS))NAT.modelDelete(m.file);if(S.custom)NAT.modelDelete(S.custom.file);}catch(e){}return;}const c=await cacheOpen();if(!c)return;for(const m of Object.values(MODELS)){try{await c.delete(modelUrl(m));}catch(e){}}if(S.custom){try{await c.delete(keyOf({custom:true,file:S.custom.file}));}catch(e){}}}
+// a model opened from the phone's files stays linked: it becomes the app's model and a copy is kept for next time
+async function rememberModel(f){
+  if(APP){
+    const k=knownKey(f),file=f.file||baseName(f.name);
+    if(!k&&S.custom&&S.custom.file!==file){try{NAT.modelDelete(S.custom.file);}catch(e){}}
+    if(k){S.model=k;setSizeMeta(MODELS[k],f.size);}else{S.model='custom';S.custom={file,size:f.size,short:nameFor(f)};}
+    save(LS_SET,S);refreshModelUI();
+    toast('이 모델을 앱에 연결했어요. 다음부터 열면 자동으로 불러와요');
+    return;
+  }
+  const k=knownKey(f);
+  const m=k?MODELS[k]:{custom:true,file:baseName(f.name),size:f.size,short:nameFor(f)};
+  const c=await cacheOpen();
+  if(!k&&S.custom&&S.custom.file!==m.file&&c){try{await c.delete(keyOf({custom:true,file:S.custom.file}));}catch(e){}}
+  if(k)S.model=k;else{S.model='custom';S.custom={file:m.file,size:f.size,short:m.short};}
+  save(LS_SET,S);refreshModelUI();
+  if(!c){toast('이 화면에서는 모델을 저장할 수 없어서, 다음에 열 때 다시 골라야 해요');return;}
+  try{
+    if(!(await cachedBlob(m))){await c.put(keyOf(m),new Response(f,{headers:{'content-type':'application/octet-stream'}}));setSizeMeta(m,f.size);}
+    toast('이 모델을 앱에 연결했어요. 다음부터 열면 자동으로 불러와요');
+  }catch(e){toast('모델은 쓸 수 있지만 앱에 저장하지 못했어요. 저장공간을 확인해 주세요');}
+  refreshModelUI();
+}
+
+// ---------- deep search (no server, no key needed) ----------
+const tsig=(sig,ms)=>{const t=AbortSignal.timeout(ms);return (sig&&AbortSignal.any)?AbortSignal.any([sig,t]):t;};
+async function getJSON(u,o){const r=await fetch(u,o);if(!r.ok)throw new Error(String(r.status));return r.json();}
+async function getText(u,o){const r=await fetch(u,o);if(!r.ok)throw new Error(String(r.status));return r.text();}
+const stripTags=s=>(s||'').replace(/<[^>]+>/g,'').replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&#0?39;/g,"'").replace(/\s+/g,' ').trim();
+async function wiki(q,sig){
+  const base='https://ko.wikipedia.org/w/api.php?format=json&origin=*&utf8=1&';
+  const s=await getJSON(base+'action=query&list=search&srlimit=2&srsearch='+encodeURIComponent(q),{signal:tsig(sig,7000)});
+  const hits=(s.query&&s.query.search||[]).slice(0,2);if(!hits.length)return [];
+  let pages=[];
+  try{const ex=await getJSON(base+'action=query&prop=extracts&exintro=1&explaintext=1&exchars=600&titles='+encodeURIComponent(hits.map(h=>h.title).join('|')),{signal:tsig(sig,7000)});pages=Object.values(ex.query&&ex.query.pages||{});}catch(e){}
+  return hits.map(h=>{const p=pages.find(x=>x.title===h.title);return {title:h.title+' · 위키백과',url:'https://ko.wikipedia.org/wiki/'+encodeURIComponent(h.title.replace(/ /g,'_')),snippet:((p&&p.extract)||stripTags(h.snippet)).slice(0,600)};});
+}
+function realUrl(href){
+  try{
+    const u=new URL(href);
+    if(/(^|\.)duckduckgo\.com$/.test(u.hostname)){
+      const t=u.pathname.startsWith('/l/')&&u.searchParams.get('uddg');
+      if(!t)return null;const r=new URL(t);return /(^|\.)duckduckgo\.com$/.test(r.hostname)?null:r.href;
+    }
+    if(/(^|\.)jina\.ai$/.test(u.hostname))return null;
+    return u.href;
+  }catch(e){return null;}
+}
+function parseResults(mdText){
+  const re=/\[([^\]\n]{1,300})\]\((https?:\/\/[^)\s]+)\)/g;const items=[];let m;
+  while((m=re.exec(mdText)))items.push({text:m[1].replace(/[*_`#]/g,'').trim(),href:m[2],start:m.index,end:re.lastIndex});
+  const out=[];const byUrl=new Map();
+  const urlish=t=>/^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(t.trim());
+  items.forEach((it,i)=>{
+    const url=realUrl(it.href);if(!url||!it.text)return;
+    const prev=byUrl.get(url);
+    if(prev){if(!urlish(it.text)&&it.text.length>(prev.snippet||'').length&&it.text!==prev.title)prev.snippet=it.text.slice(0,300);return;}
+    const next=items[i+1];
+    const between=stripTags(mdText.slice(it.end,next?next.start:it.end+400)).replace(/[#>*_`|]/g,' ').replace(/\s+/g,' ').trim();
+    const r={title:it.text.slice(0,140),url,snippet:between.length>30&&!urlish(between)?between.slice(0,300):''};
+    byUrl.set(url,r);out.push(r);
+  });
+  return out.filter(r=>r.title.length>2);
+}
+async function webSearch(q,sig){
+  if(S.jinaKey){
+    const j=await getJSON('https://s.jina.ai/?q='+encodeURIComponent(q),{headers:{'Accept':'application/json','Authorization':'Bearer '+S.jinaKey,'X-Respond-With':'no-content'},signal:tsig(sig,15000)});
+    return (j.data||[]).slice(0,5).map(x=>({title:x.title||x.url,url:x.url,snippet:(x.description||x.content||'').slice(0,300)}));
+  }
+  const via=u=>getText('https://r.jina.ai/'+u,{signal:tsig(sig,15000)});
+  let res=[];
+  try{res=parseResults(await via('https://html.duckduckgo.com/html/?q='+encodeURIComponent(q)));}catch(e){}
+  if(res.length<2){try{res=parseResults(await via('https://lite.duckduckgo.com/lite/?q='+encodeURIComponent(q)));}catch(e){}}
+  return res.slice(0,5);
+}
+const cleanPage=t=>(t||'').replace(/^(Title|URL Source|Markdown Content|Published Time):.*$/gm,'').replace(/!\[[^\]]*\]\([^)]*\)/g,'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[#>*_`|=]+/g,' ').replace(/\s+/g,' ').trim();
+async function deepSearch(q,sig,status){
+  q=q.replace(/\s+/g,' ').trim().slice(0,120);
+  status('웹 검색 중…');
+  const [w,k]=await Promise.allSettled([webSearch(q,sig),wiki(q,sig)]);
+  if(sig&&sig.aborted)throw Object.assign(new Error('aborted'),{name:'AbortError'});
+  const seen=new Set();
+  let res=[...(w.status==='fulfilled'?w.value:[]),...(k.status==='fulfilled'?k.value:[])].filter(r=>r.url&&!seen.has(r.url)&&seen.add(r.url)).slice(0,6);
+  if(S.deepRead){
+    const top=res.find(r=>!/wikipedia\.org/.test(r.url));
+    if(top){status('페이지 읽는 중…');try{top.content=cleanPage(await getText('https://r.jina.ai/'+top.url,{signal:tsig(sig,12000)})).slice(0,1200);}catch(e){}}
+  }
+  return res;
+}
+function sourcesBlock(src,limit){
+  let budget=limit||1500;const parts=[];
+  src.forEach((s,i)=>{
+    const head=`[${i+1}] ${s.title} (${host(s.url)})`;if(budget<head.length+20)return;
+    const body=(s.content||s.snippet||'').trim().slice(0,Math.min(budget-head.length-2,s.content?900:320));
+    parts.push(head+(body?'\n'+body:''));budget-=head.length+body.length+2;
+  });
+  return '[참고 자료]\n'+parts.join('\n\n');
+}
+
+// ---------- prompt building ----------
+// Keep a stable rolling window of turns so Wllama's cache_prompt (KV cache) stays valid across consecutive casual messages!
+let kvAnchorIdx=0;
+// The system prompt and the recent-turns window are the same for every kind of turn, so a deep-search turn starts
+// with exactly what the engine has already read; only the search results and the question are new.
+function buildMessages(ui,sources,isDeep){
+  const sys={role:'system',content:PERSONA+' '+FIXED_RULES};
+  const B=budgets(S.ctx);const u=messages[ui];
+  const hasDocs=!!(u.docs&&u.docs.length),hasSrc=!!(sources&&sources.length);
+  const turns=[];let carry=''; // keep conversation history even if a previous reply was stopped mid-thought
+  for(let i=0;i<ui;i++){
+    const m=messages[i];if(!m||m.role!=='user')continue;
+    const q=(m.content||'').trim();
+    const n=messages[i+1];
+    if(n&&n.role==='assistant'){
+      i++;
+      if(n.err||n.searchOnly)continue;
+      const a=stripThink(n.content||'').replace(/\n*\*\((?:생각 중 )?중단됨\)\*\s*$/,'').trim();
+      if(q&&a){turns.push([carry?carry+'\n'+q:q,a]);carry='';}
+      else if(q&&n.stopped)carry=carry?carry+'\n'+q:q; // stopped before any words: the question still counts, joined to the next one
+    }
+  }
+  const maxTurns=4,histBudget=420;
+  const size=list=>list.reduce((n,[q,a])=>n+q.length+a.length,0);
+  if(turns.length<kvAnchorIdx)kvAnchorIdx=0;
+  // the window only moves in jumps (not one turn at a time), so most turns begin with exactly what the engine already read
+  if(turns.length-kvAnchorIdx>maxTurns||size(turns.slice(kvAnchorIdx))>histBudget){
+    kvAnchorIdx=Math.max(0,turns.length-2);
+    while(kvAnchorIdx<turns.length&&size(turns.slice(kvAnchorIdx))>histBudget/2)kvAnchorIdx++;
+  }
+  const activeTurns=turns.slice(kvAnchorIdx);
+  const hist=[];let used=0;
+  for(let j=activeTurns.length-1;j>=0;j--){const [q,a]=activeTurns[j];const len=q.length+a.length;if(used+len>histBudget)break;hist.unshift({role:'user',content:q},{role:'assistant',content:a});used+=len;}
+  const lim=isDeep?B.user:500;
+  let content=(u.content||'').slice(0,lim);
+  if(carry){const room=lim-content.length-1;if(room>0)content=carry.slice(-room)+'\n'+content;}
+  if(hasDocs){let room=B.docs;content=u.docs.map(d=>{const t=d.text.slice(0,Math.max(0,room));room-=t.length;return `[첨부 문서: ${d.name}]\n${t}`;}).join('\n\n')+'\n\n'+content;}
+  // search results are kept to about 900 characters: on a phone every extra line of reading costs seconds
+  if(hasSrc)content=sourcesBlock(sources,Math.min(900,hasDocs?Math.round(B.src*0.7):B.src))+'\n\n'+SEARCH_RULES.trim()+'\n\n[질문]\n'+content;
+  return [sys,...hist,{role:'user',content}];
+}
+// Every request goes through the model's own chat template (EXAONE 4.0, EXAONE 3.5 and Kanana each have their own).
+// wllama 3.8.1 passes chat_template_kwargs to it: enable_thinking:false makes the EXAONE 4.0 template close its
+// <think> block, so the reply starts at the first token instead of after a hidden think pass.
+// Sampling keys use llama.cpp's server names: "repeat_penalty" (a "penalty_repeat" key is silently ignored).
+const chatReq=o=>({chat_template_kwargs:{enable_thinking:false},cache_prompt:true,...o});
+// right after loading: read the fixed persona once, so the first reply only has to read the new words
+function warmupKV(){
+  if(!loaded||!W)return;
+  withEngine(()=>{
+    if(gen||!loaded||!W)return; // a reply already started; it reads the persona itself
+    wBusy=true;
+    return W.createChatCompletion(chatReq({messages:[{role:'system',content:PERSONA+' '+FIXED_RULES},{role:'user',content:'.'}],max_tokens:1,temperature:0}))
+      .finally(()=>{wBusy=false;});
+  }).catch(()=>{});
+}
+
+// ---------- images: storage (IndexedDB, falls back to memory) ----------
+let idbHandle=null,idbOK=true;const memImgs=new Map();const urlCache=new Map();
+async function idb(){
+  if(idbHandle||!idbOK)return idbHandle;
+  try{idbHandle=await new Promise((res,rej)=>{const r=indexedDB.open('glok',1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains('images'))r.result.createObjectStore('images',{keyPath:'id'});};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+  catch(e){idbOK=false;idbHandle=null;}
+  return idbHandle;
+}
+function idbReq(mode,fn){return idb().then(db=>new Promise((res,rej)=>{const t=db.transaction('images',mode);const r=fn(t.objectStore('images'));t.oncomplete=()=>res(r&&r.result);t.onerror=()=>rej(t.error);}));}
+async function imgPut(rec){if(!(await idb())){memImgs.set(rec.id,rec);return;}await idbReq('readwrite',s=>s.put(rec));}
+async function imgGet(id){if(memImgs.has(id)||!(await idb()))return memImgs.get(id)||null;return (await idbReq('readonly',s=>s.get(id)))||null;}
+async function imgAll(){const mem=[...memImgs.values()];if(!(await idb()))return mem.sort((a,b)=>b.createdAt-a.createdAt);return [...((await idbReq('readonly',s=>s.getAll()))||[]),...mem].sort((a,b)=>b.createdAt-a.createdAt);}
+async function imgDel(id){const u=urlCache.get(id);if(u){URL.revokeObjectURL(u);urlCache.delete(id);}if(memImgs.delete(id)||!(await idb()))return;await idbReq('readwrite',s=>s.delete(id));}
+function imgURL(rec){let u=urlCache.get(rec.id);if(!u){u=URL.createObjectURL(rec.blob);urlCache.set(rec.id,u);}return u;}
+
+// ---------- NovelAI ----------
+const NAI=loadJSON(LS_NAI,null)||{key:'',tier:null,anlas:null,active:false};
+let imgBusy=false;
+async function naiCheck(key){
+  let r;
+  try{r=await fetch(NAI_HOST+'/user/subscription',{headers:{Authorization:'Bearer '+key}});}
+  catch(e){throw new Error('NovelAI에 연결하지 못했어요. 인터넷을 확인하거나, 이 브라우저에서 접속이 막혔을 수 있어요.');}
+  if(r.status===401||r.status===403)throw new Error('키가 맞지 않아요. pst-로 시작하는 Persistent API Token인지 확인해 주세요.');
+  if(!r.ok)throw new Error('확인하지 못했어요 (HTTP '+r.status+')');
+  const j=await r.json();const st=j.trainingStepsLeft||{};
+  return {tier:j.tier,active:!!j.active,anlas:(st.fixedTrainingStepsLeft||0)+(st.purchasedTrainingSteps||0)};
+}
+const TIERS={0:'Paper',1:'Tablet',2:'Scroll',3:'Opus'};
+function naiStatusText(){const t=TIERS[NAI.tier]||'구독 정보 없음';return `${t}${NAI.active?'':' (비활성)'} · Anlas ${NAI.anlas==null?'-':Number(NAI.anlas).toLocaleString()}`;}
+function naiBody(o){
+  const meta=NAI_MODELS[o.model]||NAI_MODELS['nai-diffusion-5-full'];
+  const input=(o.prompt||'').trim()+qualitySuffix(o.model,o.quality);
+  const neg=(o.negative||'').trim();
+  const parameters={
+    params_version:4,width:o.width,height:o.height,scale:+o.scale,sampler:NAI_SAMPLERS[o.sampler]?o.sampler:'k_euler_ancestral',steps:+o.steps,n_samples:1,
+    ucPresetId:'none',qualityPresetId:o.quality,autoSmea:false,dynamic_thresholding:false,controlnet_strength:1,legacy:false,
+    add_original_image:false,cfg_rescale:+o.rescale||0,legacy_v3_extend:false,use_coords:false,legacy_uc:false,normalize_reference_strength_multiple:true,
+    inpaintImg2ImgStrength:1,seed:o.seed,characterPrompts:[],
+    v4_prompt:{caption:{base_caption:input,char_captions:[]},use_coords:false,use_order:true},
+    v4_negative_prompt:{caption:{base_caption:neg,char_captions:[]},legacy_uc:false},
+    negative_prompt:neg,deliberate_euler_ancestral_bug:false,prefer_brownian:true,noise_schedule:'karras',image_format:'png',skip_cfg_above_sigma:null,
+  };
+  if(meta.v5){parameters.straight_alpha=true;parameters.tag_hint_qt=1;parameters.tag_hint_uc_preset=2;}
+  return {input,model:o.model,action:'generate',parameters};
+}
+function naiError(status,msg){
+  const map={400:'요청이 거절됐어요',401:'API 키가 맞지 않아요',402:'Anlas가 부족하거나 구독이 필요해요',403:'접근이 거부됐어요',429:'이미 그리고 있는 이미지가 있어요. 잠시 뒤 다시 해 주세요',500:'NovelAI 서버 오류예요',503:'NovelAI가 바빠요. 잠시 뒤 다시 해 주세요'};
+  return new Error((map[status]||('NovelAI 오류 '+status))+(msg?` (${String(msg).slice(0,120)})`:''));
+}
+async function unzip(u8){
+  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);let eocd=-1;
+  for(let i=u8.length-22;i>=Math.max(0,u8.length-65557);i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;}}
+  if(eocd<0)throw new Error('이미지 파일 형식을 읽지 못했어요');
+  const count=dv.getUint16(eocd+10,true);let p=dv.getUint32(eocd+16,true);const out=[];
+  for(let k=0;k<count;k++){
+    if(dv.getUint32(p,true)!==0x02014b50)break;
+    const method=dv.getUint16(p+10,true),csize=dv.getUint32(p+20,true),nlen=dv.getUint16(p+28,true),xlen=dv.getUint16(p+30,true),clen=dv.getUint16(p+32,true),lho=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nlen));
+    const start=lho+30+dv.getUint16(lho+26,true)+dv.getUint16(lho+28,true);
+    const comp=u8.subarray(start,start+csize);let data;
+    if(method===0)data=comp;
+    else if(method===8)data=new Uint8Array(await new Response(new Blob([comp]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    else throw new Error('지원하지 않는 압축 방식이에요');
+    out.push({name,data});p+=46+nlen+xlen+clen;
+  }
+  return out;
+}
+async function naiGenerate(o,signal){
+  const fd=new FormData();
+  fd.append('request',new Blob([JSON.stringify(naiBody(o))],{type:'application/json'}),'blob');
+  let r;
+  try{r=await fetch(NAI_HOST+'/ai/generate-image',{method:'POST',headers:{Authorization:'Bearer '+NAI.key},body:fd,signal});}
+  catch(e){if(e&&e.name==='AbortError')throw e;throw new Error('NovelAI에 연결하지 못했어요. 인터넷을 확인하거나, 이 브라우저에서 접속이 막혔을 수 있어요.');}
+  if(!r.ok){let msg='';try{const j=await r.json();msg=j.message||'';}catch(e){}throw naiError(r.status,msg);}
+  const files=await unzip(new Uint8Array(await r.arrayBuffer()));
+  const f=files.find(x=>/\.(png|webp|jpe?g)$/i.test(x.name));
+  if(!f)throw new Error('이미지를 받지 못했어요');
+  return new Blob([f.data],{type:/\.webp$/i.test(f.name)?'image/webp':/\.jpe?g$/i.test(f.name)?'image/jpeg':'image/png'});
+}
+async function createImage(o){
+  const sz=NAI_SIZES[o.size]||NAI_SIZES.portrait;
+  const seed=String(o.seed||'').trim()!==''&&!isNaN(+o.seed)?Math.floor(+o.seed):Math.floor(Math.random()*4294967288);
+  const blob=await naiGenerate({...o,width:sz.w,height:sz.h,seed});
+  const rec={id:uid(),createdAt:Date.now(),prompt:o.prompt,negative:o.negative||'',model:o.model,size:o.size,width:sz.w,height:sz.h,steps:+o.steps,scale:+o.scale,sampler:NAI_SAMPLERS[o.sampler]?o.sampler:'k_euler_ancestral',rescale:+o.rescale||0,seed,quality:o.quality,source:o.source||'tab',chatId:o.chatId||null,blob};
+  try{await imgPut(rec);}catch(e){memImgs.set(rec.id,rec);toast('저장공간이 부족해 이 이미지는 이번에만 보여요');}
+  naiCheck(NAI.key).then(s=>{Object.assign(NAI,s);save(LS_NAI,NAI);if(!$('#viewImage').hidden)renderImageTab();}).catch(()=>{});
+  return rec;
+}
+// Chat pictures: the local model turns the scene (or a Korean /그림 request) into English tags.
+const TAG_SYS='You turn a scene into an image prompt. Reply with English Danbooru-style tags only, comma-separated, no sentences.';
+function cleanTags(raw){
+  const seen=new Set();
+  // strip list markers ("1. ", "- ") and quotes, but keep count tags such as 1boy / 2boys
+  return String(raw||'').split(/[,\n]/).map(t=>t.trim().replace(/^(?:[-*•]+\s*|\d+[.)]\s+)/,'').replace(/^["']+|["'.]+$/g,'').trim().toLowerCase())
+    .filter(t=>t&&t.length<=40&&/^[a-z0-9 _()':.-]+$/.test(t)&&!seen.has(t)&&seen.add(t))
+    .slice(0,20).join(', ');
+}
+async function localTags(instruction,sig){
+  await ensureEngineReady();
+  if(!loaded||!W)return '';
+  tagBusy=true;
+  try{
+    let out='';
+    await withEngine(()=>{
+      if(sig&&sig.aborted)throw abortErr();
+      if(!loaded||!W)return;
+      wBusy=true;
+      return W.createChatCompletion(chatReq({messages:[{role:'system',content:TAG_SYS},{role:'user',content:instruction}],
+        stream:true,abortSignal:sig,max_tokens:80,temperature:0.3,top_p:0.9,
+        onData:ch=>{const d=ch&&ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content;if(d)out+=d;}}))
+        .finally(()=>{wBusy=false;});
+    });
+    return cleanTags(stripThink(out));
+  }catch(e){if(e&&e.name==='AbortError')throw e;return '';}
+  finally{tagBusy=false;}
+}
+const sceneInstr=(u,a)=>`Write at most 20 tags for an anime illustration of this moment: who is in it, place, action, expression, lighting.\n\nUser: ${String(u||'').slice(0,500)}\nGlok: ${stripThink(a).slice(0,700)}`;
+const KW_TAGS=[
+  [/웃|미소|행복|좋아|기분|설레|ㅎㅎ|ㅋㅋ|사랑|고마워/, 'smile, gentle expression, warm atmosphere, looking at viewer'],
+  [/안아|품|포옹|끌어안|기대/, 'hug, embrace, close-up, affectionate, warm lighting'],
+  [/키스|입맞춤|뽀뽀|입술/, 'kiss, close-up, romantic, blush, soft lighting'],
+  [/침대|자자|잘자|누워|방|이불|밤|새벽/, 'bedroom, bed, night, indoor, dim lighting, cozy'],
+  [/비|우산|창가|창문/, 'rain, window, indoor, atmospheric lighting'],
+  [/카페|커피|차|음료|식당|밥/, 'cafe, indoor, table, sitting, warm lighting'],
+  [/거리|산책|밖|공원|걸어|데이트/, 'outdoors, street, walking, date, gentle breeze'],
+  [/슬퍼|울|눈물|우울|힘들|아파|미안/, 'worried expression, comforting, gentle gaze, close-up'],
+  [/화나|삐졌|질투|투정|장난/, 'smirk, teasing expression, looking at viewer'],
+];
+function instantSceneTags(txt){
+  const t=String(txt||'');const picked=[];
+  for(const [re,tags] of KW_TAGS)if(re.test(t))picked.push(tags);
+  if(!picked.length)picked.push('looking at viewer, gentle smile, upper body, indoor, soft lighting');
+  return cleanTags(picked.join(', '));
+}
+const descInstr=d=>`Write at most 20 tags for an anime illustration of: ${String(d).slice(0,500)}`;
+const hasHangul=t=>/[가-힣ㄱ-ㅎ]/.test(t||'');
+// base tags first, then the scene; a tag that repeats is kept once
+function mergeTags(...parts){
+  const seen=new Set(),out=[];
+  parts.join(',').split(',').map(t=>t.trim()).filter(Boolean).forEach(t=>{const k=t.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(t);}});
+  return out.join(', ');
+}
+function paintImgBusy(){if(APP){try{NAT.setBusy('img',!!imgBusy);}catch(e){}}const b=$('#imgGo');if(b){b.disabled=imgBusy;b.textContent=imgBusy?'그리는 중…':'생성';}}
+const imgStatus=t=>{if(!gen)setStatus(t);};
+// one picture at a time (NovelAI refuses parallel requests); later ones wait in line
+const drawQ=[];let drawing=false;
+function queueDraw(m,c,job){
+  if(!NAI.key){toast('이미지 탭에서 NovelAI를 먼저 연결해 주세요');return false;}
+  if(m.image&&(m.image.state==='pending'||m.image.state==='queued'))return false;
+  m.image={state:'queued'};touchChat(c);refreshMsg(m);
+  return new Promise(resolve=>{drawQ.push({m,c,job,resolve});pumpDraw();});
+}
+function drawForMessage(m,c,tags){ // the "그리기" button, and the automatic picture with a reply
+  c=c||chat;if(!m||m.role!=='assistant'||!m.content)return Promise.resolve(false);
+  if(!loaded&&NAI.key&&tags==null)toast('모델이 없어서 기본 태그로만 그려요');
+  return queueDraw(m,c,{kind:'scene',tags});
+}
+async function pumpDraw(){
+  if(drawing)return;drawing=true;
+  try{
+    while(drawQ.length){
+      const {m,c,job,resolve}=drawQ[0];
+      await waitFor(()=>!imgBusy);
+      imgBusy=true;paintImgBusy();m.image={state:'pending'};refreshMsg(m);
+      try{
+        if(job.sig&&job.sig.aborted)throw abortErr();
+        let tags=job.tags||'';
+        if(!tags){
+          if(job.kind==='scene'){
+            const idx=c.messages.indexOf(m);let u=null;
+            for(let i=idx-1;i>=0;i--)if(c.messages[i].role==='user'){u=c.messages[i];break;}
+            if(loaded){await waitFor(()=>!wBusy&&!modelBusy);imgStatus('이미지 장면 만드는 중…');tags=await localTags(sceneInstr(u&&u.content,m.content),job.sig);}
+          }else{
+            const d=job.desc;
+            if(hasHangul(d)&&loaded){await waitFor(()=>!wBusy&&!modelBusy);imgStatus('그릴 장면 정리하는 중…');tags=await localTags(descInstr(d),job.sig);}
+            if(!tags)tags=d;
+          }
+        }
+        const prompt=mergeTags(S.img.base,tags);
+        m.imgPrompt=prompt;
+        imgStatus('이미지 그리는 중…');
+        const sz=NAI_SIZES[S.img.size]||NAI_SIZES.portrait;
+        const seed=Math.floor(Math.random()*4294967288);
+        const blob=await naiGenerate({prompt,negative:S.img.negative,model:S.img.model,size:S.img.size,width:sz.w,height:sz.h,steps:S.img.steps,scale:S.img.scale,sampler:S.img.sampler,rescale:S.img.rescale,seed,quality:S.img.quality},job.sig);
+        const rec={id:uid(),createdAt:Date.now(),prompt,negative:S.img.negative||'',model:S.img.model,size:S.img.size,width:sz.w,height:sz.h,steps:+S.img.steps,scale:+S.img.scale,sampler:NAI_SAMPLERS[S.img.sampler]?S.img.sampler:'k_euler_ancestral',rescale:+S.img.rescale||0,seed,quality:S.img.quality,source:'chat',chatId:c.id,blob};
+        try{await imgPut(rec);}catch(e){memImgs.set(rec.id,rec);toast('저장공간이 부족해 이 이미지는 이번에만 보여요');}
+        naiCheck(NAI.key).then(s=>{Object.assign(NAI,s);save(LS_NAI,NAI);if(!$('#viewImage').hidden)renderImageTab();}).catch(()=>{});
+        m.image={state:'done',id:rec.id,w:rec.width,h:rec.height};
+      }catch(e){
+        if(e&&e.name==='AbortError')m.image=null;
+        else m.image={state:'error',error:String(e&&e.message||e).slice(0,160)};
+      }finally{
+        drawQ.shift();imgBusy=false;paintImgBusy();if(!gen)setStatus('');
+        touchChat(c);refreshMsg(m);if(!$('#viewImage').hidden)renderGallery();
+        if(resolve)resolve(true);
+      }
+    }
+  }finally{drawing=false;}
+}
+
+// ---------- chat UI ----------
+const thread=$('#thread'),scroll=$('#scroll'),input=$('#input'),sendBtn=$('#send');
+let gen=null,streamMsg=null;
+const ICON_SEND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const ICON_STOP='<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const IC_COPY='<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>';
+const IC_DRAW='<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/>';
+const IC_AGAIN='<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>';
+function setBusy(b){if(APP){try{NAT.setBusy('chat',!!b);}catch(e){}}sendBtn.classList.toggle('stop',b);sendBtn.innerHTML=b?ICON_STOP:ICON_SEND;sendBtn.title=b?'중지':'보내기';sendBtn.setAttribute('aria-label',b?'중지':'보내기');}
+function setStatus(t){$('#statusText').textContent=t||'';$('#statusline').hidden=!t;}
+const toBottom=()=>{scroll.scrollTop=scroll.scrollHeight;};
+const nearBottom=()=>scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<140;
+
+function render(){
+  thread.innerHTML='';
+  if(!messages.length){renderEmpty();return;}
+  messages.forEach((m,i)=>thread.appendChild(bubble(m,i)));
+  toBottom();
+}
+// redraw one message in place (pictures finish while the user may be reading or typing elsewhere)
+function refreshMsg(m){
+  const i=messages.indexOf(m);if(i<0)return;
+  const old=thread.querySelector(`.msg[data-i="${i}"]`);if(!old){render();return;}
+  const keep=nearBottom();const n=bubble(m,i);n.style.animation='none';old.replaceWith(n);if(keep)toBottom(); // a message already on screen doesn't fade in again when its picture arrives
+}
+function renderEmpty(){
+  const w=el('div','empty');
+  w.innerHTML='<span class="logo">G</span><h1>Glok</h1>';
+  if(!loaded){
+    const c=el('div','card');const m=curModel();
+    c.innerHTML=`<div class="t">${esc(m.label)}</div><div class="s">${esc(m.sub)}</div><div class="s" id="emptyState"></div>`;
+    const row=el('div','row');
+    const b1=el('button','btn primary grow','준비 중…');b1.id='emptyMain';b1.onclick=mainModelAction;
+    const b2=el('button','btn ghost grow','모델 파일 열기');b2.onclick=()=>$('#ggufInput').click();
+    row.append(b1,b2);c.appendChild(row);
+    const p=el('div','note','모델 없이도 딥서치를 켜고 물어보면 검색 결과를 바로 보여 드려요. ');
+    const dl=el('a',null,'모델 파일 직접 받기');dl.id='emptyDirect';dl.href=directUrl(m.custom?MODELS.q4:m);dl.target='_blank';dl.rel='noopener noreferrer';dl.style.color='var(--link)';
+    p.appendChild(dl);c.appendChild(p);w.appendChild(c);
+  }else{w.appendChild(el('div',null,'무엇이든 이야기해요.'));}
+  const chips=el('div','chips');
+  const ideas=['오늘 하루 얘기 들어줘','요즘 소식 찾아서 정리해 줘','짧은 문자 답장 써 줘'];
+  if(NAI.key)ideas.push('/그림 비 오는 밤, 창가에서 웃는 모습');
+  ideas.forEach(t=>{const c=el('button','chipq',t);c.onclick=()=>{input.value=t;autosize();input.focus();};chips.appendChild(c);});
+  w.appendChild(chips);thread.appendChild(w);
+  refreshModelUI();
+}
+function bubble(m,i){
+  const wrap=el('div','msg '+m.role+(m.kind==='draw'?' draw':''));wrap.dataset.i=i;
+  const b=el('div','bubble'),body=el('div','body');
+  if(m.kind==='draw')body.hidden=true;
+  else if(m.role==='assistant')body.innerHTML=m.content?md(stripThink(m.content)):'<span class="typing"></span>';
+  else body.innerHTML='<p>'+esc(m.content).replace(/\n/g,'<br>')+'</p>';
+  b.appendChild(body);
+  if(m.docs&&m.docs.length)b.appendChild(el('div','note','첨부: '+m.docs.map(d=>d.name).join(', ')));
+  if(m.image&&!m.holdImg)b.appendChild(chatImageBlock(m)); // an automatic picture is prepared out of sight and only shown after its reply
+  if(m.kind==='draw'&&m.imgPrompt)b.appendChild(el('div','imgcap',m.imgPrompt));
+  if(m.sources&&m.sources.length){
+    const sd=el('div','srcs');sd.appendChild(el('div',null,'출처'));
+    m.sources.forEach((s,n)=>{const a=el('a',null,`[${n+1}] ${s.title}`);a.href=s.url;a.target='_blank';a.rel='noopener noreferrer';sd.appendChild(a);});
+    b.appendChild(sd);
+  }
+  wrap.appendChild(b);
+  const meta=el('div','meta');
+  const drawing=m.image&&(m.image.state==='pending'||m.image.state==='queued');
+  if(m.kind==='draw'){
+    if(m.imgPrompt)meta.appendChild(mbtn('프롬프트 복사',IC_COPY,()=>copy(m.imgPrompt)));
+    if(!drawing)meta.appendChild(mbtn('다시 그리기',IC_AGAIN,()=>queueDraw(m,chat,{kind:'desc',desc:m.drawDesc})));
+  }else if(m.content&&m!==streamMsg){
+    const rawTxt=m.content.replace(/\n*\*\((?:생각 중 )?중단됨\)\*\s*$/,'').trim();
+    if(rawTxt){
+      meta.appendChild(mbtn('복사',IC_COPY,()=>copy(rawTxt)));
+      meta.appendChild(mbtn('입력창에','<path d="M4 20h16M12 4v12M7 11l5 5 5-5"/>',()=>{input.value=rawTxt;autosize();input.focus();}));
+      if(m.role==='assistant'&&!m.searchOnly&&!m.err&&NAI.key&&!drawing)meta.appendChild(mbtn('그리기',IC_DRAW,()=>drawForMessage(m)));
+    }
+    if(m.role==='assistant'&&i===messages.length-1&&!gen)meta.appendChild(mbtn('다시',IC_AGAIN,()=>regen()));
+    if(m.searchOnly&&!loaded&&i===messages.length-1){const p=mbtn('모델 준비','<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>',()=>mainModelAction());p.classList.add('prep');meta.appendChild(p);}
+  }
+  if(meta.childNodes.length)wrap.appendChild(meta);
+  return wrap;
+}
+function chatImageBlock(m){
+  const st=m.image.state;
+  if(st==='pending'||st==='queued'||(st==='done'&&m.holdImg)){
+    const d=el('div','imgph');const sz=NAI_SIZES[S.img.size]||NAI_SIZES.portrait;d.style.aspectRatio=`${sz.w}/${sz.h}`;
+    d.innerHTML=`<span class="typing"></span><span>${st==='queued'?'앞 그림이 끝나면 그려요':st==='done'?'답변 후 이미지 표시 중…':'이미지 그리는 중…'}</span>`;return d;
+  }
+  if(st==='error')return el('div','note','이미지를 그리지 못했어요: '+m.image.error);
+  const img=el('img','chatimg');img.alt='대화 장면 이미지';img.loading='lazy';
+  img.style.aspectRatio=`${m.image.w||832}/${m.image.h||1216}`; // space is kept before the file loads, so the chat doesn't jump
+  imgGet(m.image.id).then(rec=>{if(rec){img.src=imgURL(rec);img.onclick=()=>openViewer(rec);}else{img.replaceWith(el('div','note','이미지가 지워졌어요'));}}).catch(()=>{});
+  return img;
+}
+function mbtn(label,path,fn){const b=el('button','mbtn');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+path+'</svg>'+label;b.onclick=fn;return b;}
+// streaming text is written into whatever element currently shows that message, so a redraw mid-answer can't strand it
+function paintStream(m){
+  const i=messages.indexOf(m);if(i<0)return;
+  const body=thread.querySelector(`.msg[data-i="${i}"] .body`);if(!body)return;
+  const keep=nearBottom();const c=stripThink(m.content);body.innerHTML=c?md(c):'<span class="typing"></span>';if(keep)toBottom();
+}
+// skip the web for small talk and roleplay lines: faster, and keeps boyfriend persona from turning into a stiff encyclopedia
+function shouldSearch(q){
+  const t=(q||'').replace(/\s+/g,'');
+  if(t.length<6)return false;
+  if(/^[ㄱ-ㅎㅏ-ㅣ~!?.,…♡♥\p{Extended_Pictographic}\uFE0F]+$/u.test(t))return false;
+  if(/^[*(（]/.test(q.trim()))return false;
+  if(/검색|찾아|알려|누구|언제|어디|얼마|무슨 뜻|뉴스|날씨|근황|가격|방법|추천|요약|정리|어때/.test(q))return true;
+  if(/사랑|보고\s*싶|안아|키스|뽀뽀|자기|오빠|형|너는|네가|나랑|우리|피곤|졸려|심심|잘\s*자|일어났|밥\s*먹/.test(q))return false;
+  return true;
+}
+
+// Stop ends the turn on screen at once, also while it is still thinking, and the conversation can go on right away.
+// The engine keeps its loaded model and what it has already read; it lets go of the stopped request after its
+// current small step, and only an engine stuck for a long time is restarted.
+const STOP_GRACE=+(window.__glokStopGraceMs||60000);
+function stopGeneration(){
+  if(!gen)return;
+  const ctl=gen;
+  ctl.abort();
+  if(ctl.onStop)ctl.onStop();
+  const id=ctl.runId;if(!id)return;
+  let seen=0,last=Date.now();
+  const check=()=>{
+    if(engineActive!==id)return; // released
+    const now=Date.now();if(!document.hidden)seen+=now-last;last=now; // time in the background doesn't count
+    if(seen<STOP_GRACE){setTimeout(check,1000);return;}
+    hardStopWorker();
+  };
+  setTimeout(check,1000);
+}
+async function onSend(){
+  if(gen){stopGeneration();return;}
+  const text=input.value.trim();
+  if(!text&&!pending.length)return;
+  const cmd=text.match(/^\/(그림|img)(?:\s+([\s\S]*))?$/i);
+  if(cmd)return drawCommand(text,(cmd[2]||'').trim());
+  if(modelBusy){toast('모델을 준비하는 중이에요. 잠시만요');return;}
+  const lim=budgets(S.ctx).user;
+  if(text.length>lim)toast(`긴 글은 앞부분 ${lim}자까지만 모델에 전달돼요`);
+  const um={role:'user',content:text||'첨부한 문서를 요약해 줘.'};
+  const docs=pending.filter(a=>a.kind==='doc');if(docs.length)um.docs=docs.map(d=>({name:d.name,text:d.text}));
+  pending=[];renderAtts();input.value='';autosize();
+  ensureChat();messages.push(um);touchChat();
+  await generate(messages.length-1);
+}
+// "/그림 <장면>" draws straight from the chat box
+function drawCommand(text,desc){
+  if(!desc){toast('/그림 뒤에 그릴 장면을 적어 주세요');return;}
+  if(!NAI.key){toast('이미지 탭에서 NovelAI를 먼저 연결해 주세요');setTab('image');return;}
+  if(hasHangul(desc)&&!loaded)toast('모델이 없으면 한국어를 태그로 못 바꿔요. 영어로 쓰면 더 정확해요');
+  input.value='';autosize();
+  ensureChat();
+  const am={role:'assistant',content:'',kind:'draw',drawDesc:desc};
+  messages.push({role:'user',content:text},am);touchChat();render();
+  queueDraw(am,chat,{kind:'desc',desc});
+}
+async function regen(){
+  if(gen)return;
+  let ui=messages.length-1;if(messages[ui]&&messages[ui].role==='assistant')messages.pop();
+  ui=messages.length-1;if(ui<0||messages[ui].role!=='user')return;
+  await generate(ui);
+}
+const abortErr=()=>Object.assign(new Error('aborted'),{name:'AbortError'});
+function raceAbort(promise,ctl){
+  return new Promise((resolve,reject)=>{
+    if(ctl.signal.aborted){reject(abortErr());return;}
+    const prev=ctl.onStop;
+    ctl.onStop=()=>{if(prev)prev();reject(abortErr());};
+    promise.then(resolve,reject);
+  });
+}
+let lastGenBeat=0;
+// returns true when it started writing an answer again
+function resumePendingChatIfNeeded(){
+  if(gen||modelBusy||!loaded||!W||!messages.length)return false;
+  const last=messages[messages.length-1];
+  // If the last message is a user message (or an unfinished assistant message that got cut off when the app closed), auto-generate the reply!
+  if(last.role==='user'){
+    toast('멈췄던 답변을 이어서 작성해요');
+    generate(messages.length-1);return true;
+  }else if(last.role==='assistant'&&last.pendingGen&&!last.stopped){
+    const kept=last.srcKeep;messages.pop();
+    if(messages.length&&messages[messages.length-1].role==='user'){
+      toast('백그라운드에서 멈췄던 답변을 다시 이어서 완료해요');
+      generate(messages.length-1,kept&&kept.length?{sources:kept}:null);return true; // the search it already did is used again
+    }
+  }
+  return false;
+}
+// how fast this phone reads and writes, for the status line and the device check
+const LS_SPEED='glok.v2.speed';let lastSpeed=loadJSON(LS_SPEED,null);
+const leftTime=s=>s>=90?`약 ${Math.round(s/60)}분`:`약 ${Math.max(5,Math.round(s/5)*5)}초`;
+async function generate(ui,pre){
+  const c=chat;const am={role:'assistant',content:'',pendingGen:true};messages.push(am);streamMsg=am;touchChat(c);
+  const ctl=new AbortController();gen=ctl;setBusy(true);render();
+  let buf='',imgTask=null,textDone=false;
+  const wantSyncImg=!!(S.autoImage&&NAI.key);
+  try{
+    const q=messages[ui].content||'';
+    let sources=[];
+    if(pre&&pre.sources&&pre.sources.length)sources=pre.sources;
+    else if(S.search&&shouldSearch(q)){
+      try{sources=await raceAbort(deepSearch(q,ctl.signal,setStatus),ctl);}catch(e){if(e.name==='AbortError')throw e;}
+    }
+    if(sources.length){
+      am.sources=sources.map(s=>({title:s.title,url:s.url})); // only what the chat shows is kept
+      am.srcKeep=sources.map(s=>({title:s.title,url:s.url,snippet:s.snippet||'',content:s.content||''}));touchChat(c); // until the answer is done
+    }
+    await raceAbort(ensureEngineReady(),ctl);
+    if(!loaded){
+      am.searchOnly=true;
+      am.content=sources.length
+        ? '모델 없이 검색 결과만 보여 드려요.\n\n'+sources.map((s,i)=>`**[${i+1}] ${s.title}**\n${(s.content||s.snippet||'').slice(0,280)}`).join('\n\n')
+        : (S.search?'검색 결과를 가져오지 못했어요. 인터넷 연결을 확인하거나, 모델을 불러와서 대화해 주세요.':'아직 모델이 없어요. 위쪽 모델 이름을 눌러 준비하거나, 딥서치를 켜고 물어보세요.');
+      delete am.pendingGen; // finished: not an answer the app lost
+      return;
+    }
+    if(tagBusy){setStatus('그림 장면 정리 중… 곧 답할게요');await raceAbort(waitFor(()=>!tagBusy||ctl.signal.aborted),ctl);}
+    if(ctl.signal.aborted)throw abortErr();
+    if(!loaded||!W)throw new Error('모델이 내려져 있어요. 다시 불러와 주세요.');
+
+    const t0=Date.now();let phase=wantSyncImg?'이미지 요청 및 생각 중':'생각하는 중',pct='';
+    const tick=()=>setStatus(`${phase}${pct} · ${Math.round((Date.now()-t0)/1000)}초`);
+    tick();const iv=setInterval(tick,1000);
+    try{
+      if(wantSyncImg){
+        // Start NovelAI image generation immediately in parallel (zero extra LLM calls, so KV cache stays intact and speed is 2x faster).
+        // Hold image display (holdImg=true) so the image is pre-loaded in background and NEVER shown before the chat text.
+        am.holdImg=true;
+        let prevA='';
+        for(let i=ui-1;i>=0;i--)if(messages[i]&&messages[i].role==='assistant'&&messages[i].content&&!messages[i].err){prevA=messages[i].content;break;}
+        const fastTags=instantSceneTags(q+' '+prevA);
+        imgTask=queueDraw(am,c,{kind:'scene',tags:fastTags,sig:ctl.signal});
+      }
+
+      const isDeep=!!(sources.length||(messages[ui].docs&&messages[ui].docs.length)||/길게|자세히|정리|요약|설명|써\s*줘|작성/.test(q));
+      const maxTok=isDeep?+S.maxTokens:Math.min(+S.maxTokens,64);
+      const msgs=buildMessages(ui,sources,isDeep);
+      // a casual reply that has said enough is cut short on purpose: that is a finished answer, not a stop
+      let enough=false,raf=0,readRate=0,tFirst=0,nOut=0;
+      const llmAbort=new AbortController();
+      ctl.signal.addEventListener('abort',()=>llmAbort.abort(),{once:true});
+      const run=withEngine(()=>{
+        if(ctl.signal.aborted)throw abortErr();
+        if(!loaded||!W)throw new Error('모델이 내려져 있어요. 다시 불러와 주세요.');
+        wBusy=true;
+        return W.createChatCompletion(chatReq({
+          messages:msgs,stream:true,abortSignal:llmAbort.signal,return_progress:true,
+          max_tokens:maxTok,temperature:+S.temp,top_p:+S.topP,top_k:24,min_p:0.08,repeat_penalty:+S.rep,
+          onData:ch=>{
+            if(ctl.signal.aborted||enough)return;
+            const p=ch&&ch.prompt_progress,base=p&&(p.cache||0);
+            if(p&&p.total>base&&phase!=='답하는 중'){
+              const done=p.processed-base,rest=p.total-p.processed;if(p.time_ms>0&&done>0)readRate=done/(p.time_ms/1000);
+              pct=` ${Math.min(99,Math.max(0,Math.round(done/(p.total-base)*100)))}%`+(readRate&&rest>0?` · ${leftTime(rest/readRate)} 남음`:'');tick();
+            }
+            const d=ch&&ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content;
+            if(!d)return;
+            if(!tFirst)tFirst=Date.now();nOut++;
+            buf+=d;
+            const cleanBuf=stripThink(buf).trim();
+            am.content=cleanBuf;
+            if(phase!=='답하는 중'){phase='답하는 중';pct='';tick();}
+            if(document.hidden){paintStream(am);touchChat(c);}
+            else if(!raf)raf=requestAnimationFrame(()=>{raf=0;paintStream(am);});
+            // For casual chat (non-Deep), finish cleanly once 2 sentences (~35+ chars) are complete or if 15s elapsed after 1 sentence, guaranteeing fast response!
+            if(!isDeep&&cleanBuf.length>=22&&/[.!?~♡♥]\s*$/.test(cleanBuf)){
+              const sents=cleanBuf.split(/[.!?~]+\s*/).filter(Boolean).length;
+              if((sents>=2&&cleanBuf.length>=34)||(Date.now()-t0>15000&&sents>=1)){enough=true;llmAbort.abort();}
+            }
+          },
+        })).finally(()=>{wBusy=false;});
+      },id=>{ctl.runId=id;});
+      try{await raceAbort(run,ctl);}
+      catch(e){if(!(enough&&!ctl.signal.aborted&&e&&e.name==='AbortError'))throw e;}
+      textDone=true;
+      const writeRate=nOut>2&&tFirst?(nOut-1)/((Date.now()-tFirst)/1000):0;
+      if(readRate||writeRate){lastSpeed={read:readRate||(lastSpeed&&lastSpeed.read)||0,write:writeRate||(lastSpeed&&lastSpeed.write)||0,at:Date.now()};save(LS_SPEED,lastSpeed);}
+      if(wantSyncImg&&imgTask&&am.image&&am.image.state!=='done'&&am.image.state!=='error'){
+        phase='이미지 로딩 마무리 중…';pct='';tick();
+        await raceAbort(imgTask,ctl);
+      }
+      am.content=stripThink(buf).trim()||'(빈 응답)';
+      delete am.pendingGen;
+      notifyNewChat(am.content);
+    }finally{clearInterval(iv);}
+  }catch(e){
+    am.holdImg=false;
+    delete am.pendingGen;
+    if(e&&e.name==='AbortError'){
+      if(textDone)am.content=stripThink(buf).trim()||'(빈 응답)'; // only the picture was still on its way: the reply itself is complete
+      else{
+        const partial=stripThink(buf||am.content).trim();
+        am.content=partial?(partial+'\n\n*(중단됨)*'):'*(생각 중 중단됨)*';
+        am.stopped=true;
+      }
+    }else{
+      am.content='⚠️ '+friendly(e);am.err=true;
+    }
+  }finally{
+    if(gen===ctl)gen=null;
+    delete am.srcKeep;
+    streamMsg=null;setBusy(false);setStatus('');touchChat(c);
+    const near=nearBottom(),top=scroll.scrollTop; // someone reading further up stays there; the "새 채팅이 있습니다" bar points down
+    queueMicrotask(()=>{if(!near)scroll.scrollTop=top;});
+    if(am.holdImg){
+      // 1) Render the completed chat message FIRST while image is still held
+      render();
+      // 2) Reveal the pre-loaded image right after so chat appears first, followed immediately by the image
+      setTimeout(()=>{am.holdImg=false;touchChat(c);refreshMsg(am);},150);
+    }else{
+      render();
+    }
+  }
+}
+
+// ---------- attachments ----------
+function renderAtts(){
+  const box=$('#atts');box.innerHTML='';box.hidden=!pending.length;
+  pending.forEach((a,i)=>{const c=el('div','att-chip');c.appendChild(el('span',null,'📄'));c.appendChild(el('span','nm',a.name));const x=el('button','x','✕');x.setAttribute('aria-label','첨부 빼기');x.onclick=()=>{pending.splice(i,1);renderAtts();};c.appendChild(x);box.appendChild(c);});
+}
+$('#attachBtn').onclick=()=>$('#fileInput').click();
+$('#fileInput').onchange=async e=>{
+  for(const f of e.target.files){
+    if(/\.gguf$/i.test(baseName(f.name))||await isGGUF(f)){if(APP){toast('모델 파일은 「모델 파일 열기」로 골라 주세요');continue;}loadBlob(f,nameFor(f),f);continue;}
+    if(f.type.startsWith('image/')){toast('이 폰 모드에서는 사진 인식을 지원하지 않아요 (메모리 부족)');continue;}
+    if(f.size>20e6){toast(f.name+': GGUF 모델 파일이 아니라서 열 수 없어요');continue;}
+    try{const t=await f.text();pending.push({kind:'doc',name:f.name,text:t.slice(0,3000)});if(t.length>3000)toast(f.name+': 앞부분 3000자만 읽어요');}catch(err){toast(f.name+'을 읽지 못했어요');}
+  }
+  e.target.value='';renderAtts();
+};
+$('#ggufInput').onchange=e=>{const f=e.target.files[0];if(f)loadBlob(f,nameFor(f),f);e.target.value='';};
+
+// ---------- composer ----------
+function autosize(){input.style.height='auto';input.style.height=Math.min(input.scrollHeight,window.innerHeight*0.36)+'px';}
+input.addEventListener('input',autosize);
+const coarse=window.matchMedia('(pointer:coarse)').matches;
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!coarse){e.preventDefault();onSend();}});
+sendBtn.onclick=onSend;setBusy(false);
+function applyChips(){
+  const s=$('#searchChip'),g=$('#imgChip');
+  s.classList.toggle('on',!!S.search);s.setAttribute('aria-pressed',String(!!S.search));
+  g.classList.toggle('on',!!S.autoImage);g.setAttribute('aria-pressed',String(!!S.autoImage));
+  const t=$('#tAutoImg');if(t)t.classList.toggle('on',!!S.autoImage);
+}
+$('#searchChip').onclick=()=>{S.search=!S.search;save(LS_SET,S);applyChips();toast(S.search?'딥서치 켜짐 · 질문이 검색 서비스로 전송돼요':'딥서치 꺼짐 · 대화가 기기 밖으로 나가지 않아요');};
+function setAutoImage(on){
+  if(on&&!NAI.key){toast('이미지 탭에서 NovelAI를 먼저 연결해 주세요');setTab('image');return;}
+  S.autoImage=!!on;save(LS_SET,S);applyChips();
+  toast(S.autoImage?(NAI.tier===3?'자동 이미지 켜짐 · 답장마다 장면을 그려요':'자동 이미지 켜짐 · Opus가 아니면 장마다 Anlas가 들어요'):'자동 이미지 꺼짐');
+}
+$('#imgChip').onclick=()=>setAutoImage(!S.autoImage);
+$('#pasteBtn').onclick=async()=>{
+  try{const t=await navigator.clipboard.readText();if(t){const s=input.selectionStart??input.value.length;input.value=input.value.slice(0,s)+t+input.value.slice(input.selectionEnd??s);autosize();input.focus();toast('붙여넣었어요');return;}}catch(e){}
+  input.focus();toast('입력창을 길게 눌러 붙여넣기 해 주세요');
+};
+
+// ---------- chats: new, history drawer ----------
+function newChat(){
+  if(gen){toast('답변이 끝난 뒤에 새 채팅을 열 수 있어요');return;}
+  chat=null;currentId='';messages=[];save(LS_CUR,'');pending=[];renderAtts();setTab('chat');render();
+}
+function openChat(id){
+  if(gen){toast('답변이 끝난 뒤에 바꿀 수 있어요');return;}
+  const c=chats.find(x=>x.id===id);if(!c)return;
+  chat=c;currentId=c.id;messages=c.messages;save(LS_CUR,currentId);closeOverlays();setTab('chat');render();
+}
+async function deleteChat(id){
+  const c=chats.find(x=>x.id===id);if(!c)return;
+  if(gen&&id===currentId){toast('답변이 끝난 뒤에 지울 수 있어요');return;}
+  if(!(await ask(`"${c.title||'새 채팅'}" 대화를 지울까요?`,'삭제')))return;
+  chats=chats.filter(x=>x.id!==id);
+  if(currentId===id){chat=null;currentId='';messages=[];render();}
+  persistChats();renderDrawer();
+}
+function relTime(t){
+  const d=new Date(t),now=new Date();const same=d.toDateString()===now.toDateString();
+  if(same)return d.toLocaleTimeString('ko-KR',{hour:'numeric',minute:'2-digit'});
+  const y=new Date(now);y.setDate(now.getDate()-1);if(d.toDateString()===y.toDateString())return '어제';
+  return d.toLocaleDateString('ko-KR',{month:'short',day:'numeric'});
+}
+function renderDrawer(){
+  const list=$('#chatList');list.innerHTML='';
+  const items=chats.filter(c=>c.messages&&c.messages.length).sort((a,b)=>b.updatedAt-a.updatedAt);
+  if(!items.length){list.appendChild(el('div','gempty','아직 지난 채팅이 없어요. 대화를 시작하면 여기에 모여요.'));return;}
+  items.forEach(c=>{
+    const row=el('div','crow'+(c.id===currentId?' cur':''));
+    const o=el('button','open');o.appendChild(el('div','tt',c.title||'새 채팅'));o.appendChild(el('div','dd',`${relTime(c.updatedAt)} · 메시지 ${c.messages.length}개`));o.onclick=()=>openChat(c.id);
+    const d=el('button','del');d.title='삭제';d.setAttribute('aria-label','대화 삭제');d.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';d.onclick=()=>deleteChat(c.id);
+    row.append(o,d);list.appendChild(row);
+  });
+}
+$('#newChat').onclick=newChat;
+$('#drawerNew').onclick=()=>{closeOverlays();newChat();};
+$('#menuBtn').onclick=()=>{renderDrawer();openOverlay('drawer');};
+
+// ---------- overlays (the phone's back button closes the top one instead of leaving the app) ----------
+let overlay=null,histPushed=false,skipPop=0,askDone=null;
+const anyLayer=()=>!$('#ask').hidden||!$('#viewer').hidden||!$('#sheet').hidden||$('#drawer').classList.contains('show');
+function layerOpened(){if(!histPushed){try{history.pushState({glok:1},'');histPushed=true;}catch(e){}}}
+function layerClosed(){if(histPushed&&!anyLayer()){histPushed=false;skipPop++;try{history.back();}catch(e){skipPop--;}}}
+addEventListener('popstate',()=>{
+  if(skipPop>0){skipPop--;return;}
+  histPushed=false;
+  if(!$('#ask').hidden){if(askDone)askDone(false);}
+  else if(!$('#viewer').hidden)closeViewer();
+  else closeOverlays();
+  if(anyLayer())layerOpened();
+});
+function openOverlay(name){
+  closeOverlays(true);overlay=name;$('#scrim').hidden=false;
+  if(name==='drawer')$('#drawer').classList.add('show');
+  if(name==='sheet')$('#sheet').hidden=false;
+  layerOpened();
+}
+function closeOverlays(keepHistory){
+  $('#scrim').hidden=true;$('#drawer').classList.remove('show');$('#sheet').hidden=true;overlay=null;
+  if(!keepHistory)layerClosed();
+}
+$('#scrim').onclick=()=>closeOverlays();
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('#ask').hidden){if(askDone)askDone(false);}else if(!$('#viewer').hidden)closeViewer();else closeOverlays();});
+function ask(text,okLabel){
+  if(askDone)askDone(false);
+  return new Promise(res=>{
+    $('#askText').textContent=text;$('#askOk').textContent=okLabel||'확인';$('#ask').hidden=false;$('#askScrim').hidden=false;layerOpened();
+    askDone=v=>{askDone=null;$('#ask').hidden=true;$('#askScrim').hidden=true;$('#askOk').onclick=null;$('#askCancel').onclick=null;layerClosed();res(v);};
+    $('#askOk').onclick=()=>askDone(true);$('#askCancel').onclick=()=>askDone(false);
+    setTimeout(()=>$('#askCancel').focus(),0);
+  });
+}
+$('#askScrim').onclick=()=>{if(askDone)askDone(false);};
+
+// ---------- tabs ----------
+function setTab(t){
+  $('#viewChat').hidden=t!=='chat';$('#viewImage').hidden=t!=='image';
+  $('#tabChat').classList.toggle('on',t==='chat');$('#tabImage').classList.toggle('on',t==='image');
+  $('#tabChat').setAttribute('aria-selected',String(t==='chat'));$('#tabImage').setAttribute('aria-selected',String(t==='image'));
+  if(t==='image')renderImageTab();
+}
+$('#tabChat').onclick=()=>setTab('chat');$('#tabImage').onclick=()=>setTab('image');
+
+// ---------- image tab ----------
+function seg(boxId,options,current,onPick,cols=2){
+  const box=$(boxId);box.innerHTML='';box.style.gridTemplateColumns=`repeat(${cols},minmax(0,1fr))`;
+  Object.entries(options).forEach(([k,label])=>{
+    const b=el('button',k===current?'on':'');b.type='button';b.setAttribute('aria-pressed',String(k===current));
+    if(Array.isArray(label)){b.appendChild(el('span',null,label[0]));b.appendChild(el('small',null,label[1]));}else b.textContent=label;
+    b.onclick=()=>onPick(k);box.appendChild(b);
+  });
+}
+function saveImg(){save(LS_SET,S);}
+function renderImageTab(){
+  const on=!!NAI.key;
+  $('#naiConnect').hidden=on;$('#naiPanel').hidden=!on;$('#autoSec').hidden=!on;
+  if(on){
+    $('#naiStatusText').textContent=naiStatusText();
+    const I=S.img;
+    $('#imgPrompt').value=I.prompt;$('#imgNeg').value=I.negative;$('#imgSteps').value=I.steps;$('#imgScale').value=I.scale;$('#imgSeed').value=I.seed;$('#imgBase').value=I.base;
+    const sel=$('#imgSampler');if(!sel.options.length)Object.entries(NAI_SAMPLERS).forEach(([k,v])=>sel.appendChild(new Option(v,k)));
+    sel.value=NAI_SAMPLERS[I.sampler]?I.sampler:'k_euler_ancestral';$('#imgRescale').value=I.rescale;
+    seg('#imgModelSeg',Object.fromEntries(Object.entries(NAI_MODELS).map(([k,v])=>[k,v.label])),I.model,k=>{I.model=k;I.steps=NAI_MODELS[k].steps;I.scale=NAI_MODELS[k].scale;saveImg();renderImageTab();});
+    seg('#imgSizeSeg',Object.fromEntries(Object.entries(NAI_SIZES).map(([k,v])=>[k,[v.label,`${v.w}×${v.h}`]])),I.size,k=>{I.size=k;saveImg();renderImageTab();},3);
+    seg('#imgQualSeg',QUAL_LABEL,I.quality,k=>{I.quality=k;saveImg();renderImageTab();});
+    $('#imgCost').textContent=NAI.tier===3?'Opus는 이 크기·28스텝 이하 1장이면 Anlas가 들지 않아요.':'Opus가 아니면 장마다 Anlas가 차감돼요.';
+    paintImgBusy();
+    applyChips();
+  }
+  renderGallery();
+}
+['#imgPrompt','#imgNeg','#imgSteps','#imgScale','#imgSeed','#imgBase','#imgSampler','#imgRescale'].forEach(id=>{
+  $(id).addEventListener('change',()=>{
+    const I=S.img;I.prompt=$('#imgPrompt').value;I.negative=$('#imgNeg').value;I.base=$('#imgBase').value;I.seed=$('#imgSeed').value.trim();
+    I.steps=Math.min(28,Math.max(1,Math.round(+$('#imgSteps').value||NAI_MODELS[I.model].steps)));
+    I.scale=Math.min(10,Math.max(1,+$('#imgScale').value||NAI_MODELS[I.model].scale));
+    I.sampler=NAI_SAMPLERS[$('#imgSampler').value]?$('#imgSampler').value:'k_euler_ancestral';
+    I.rescale=+(Math.min(1,Math.max(0,Math.round((+$('#imgRescale').value||0)/0.02)*0.02))).toFixed(2);$('#imgRescale').value=I.rescale; // NovelAI takes 0-1 in 0.02 steps
+    saveImg();
+  });
+});
+$('#tAutoImg').onclick=()=>setAutoImage(!S.autoImage);
+$('#naiConnectBtn').onclick=async()=>{
+  const key=$('#naiKeyInput').value.trim();
+  if(!/^pst-/.test(key)){toast('pst-로 시작하는 키를 넣어 주세요');return;}
+  const b=$('#naiConnectBtn');b.disabled=true;b.textContent='확인 중…';
+  try{const s=await naiCheck(key);Object.assign(NAI,{key},s);save(LS_NAI,NAI);$('#naiKeyInput').value='';toast('NovelAI 연결됨 · '+naiStatusText());renderImageTab();render();}
+  catch(e){toast(String(e.message||e));}
+  finally{b.disabled=false;b.textContent='연결';}
+};
+$('#naiLogout').onclick=async()=>{
+  if(!(await ask('NovelAI 연결을 해제할까요? 이 폰에 저장된 키가 지워져요.','해제')))return;
+  Object.assign(NAI,{key:'',tier:null,anlas:null,active:false});save(LS_NAI,NAI);
+  if(S.autoImage){S.autoImage=false;save(LS_SET,S);applyChips();}
+  renderImageTab();render();
+};
+$('#imgGo').onclick=async()=>{
+  const I=S.img;I.prompt=$('#imgPrompt').value;I.negative=$('#imgNeg').value;I.seed=$('#imgSeed').value.trim();saveImg();
+  if(!I.prompt.trim()){toast('프롬프트를 넣어 주세요');return;}
+  if(imgBusy){toast('다른 이미지를 그리는 중이에요. 끝나면 다시 눌러 주세요');return;}
+  imgBusy=true;paintImgBusy();
+  try{const rec=await createImage({...I,source:'tab'});renderGallery();openViewer(rec);}
+  catch(e){toast(String(e.message||e));}
+  finally{imgBusy=false;paintImgBusy();}
+};
+async function renderGallery(){
+  const g=$('#gallery');let recs=[];
+  try{recs=(await imgAll()).slice(0,60);}catch(e){}
+  g.innerHTML='';$('#galleryEmpty').hidden=recs.length>0;
+  recs.forEach(rec=>{const b=el('button');b.title='크게 보기';const im=el('img');im.alt=rec.prompt||'생성한 이미지';im.loading='lazy';im.src=imgURL(rec);b.appendChild(im);b.onclick=()=>openViewer(rec);g.appendChild(b);});
+}
+let viewerRec=null;
+function openViewer(rec){
+  viewerRec=rec;$('#vImg').src=imgURL(rec);
+  const sz=`${rec.width}×${rec.height}`;const ml=(NAI_MODELS[rec.model]||{}).label||rec.model;
+  $('#vInfo').innerHTML=`${esc(ml)} · ${sz} · 스텝 ${rec.steps} · 가이던스 ${rec.scale} · ${esc(NAI_SAMPLERS[rec.sampler]||'Euler Ancestral')} · 리스케일 ${rec.rescale||0} · 시드 ${rec.seed}<div class="p">${esc(rec.prompt)}</div>`;
+  $('#viewer').hidden=false;layerOpened();
+}
+function closeViewer(){$('#viewer').hidden=true;viewerRec=null;layerClosed();}
+$('#vClose').onclick=()=>closeViewer();
+$('#vCopy').onclick=()=>{if(viewerRec)copy(viewerRec.prompt);};
+$('#vSave').onclick=()=>{if(!viewerRec)return;const ext=((viewerRec.blob.type||'').split('/')[1]||'png').replace('jpeg','jpg');saveBlob(viewerRec.blob,`glok-${viewerRec.seed}.${ext}`);};
+$('#vReuse').onclick=()=>{
+  if(!viewerRec)return;const r=viewerRec;
+  Object.assign(S.img,{prompt:r.prompt,negative:r.negative,model:r.model,size:r.size||S.img.size,steps:r.steps,scale:r.scale,sampler:r.sampler||'k_euler_ancestral',rescale:r.rescale||0,seed:String(r.seed),quality:r.quality||S.img.quality});
+  saveImg();closeViewer();setTab('image');toast('같은 설정과 시드를 불러왔어요');
+};
+$('#vDel').onclick=async()=>{
+  if(!viewerRec)return;const id=viewerRec.id;
+  if(!(await ask('이 이미지를 지울까요?','삭제')))return;
+  await imgDel(id);closeViewer();renderGallery();render();
+};
+
+// ---------- model UI ----------
+let modelMsg={kind:'',text:''},cachedFlag=false;
+function setModelState(kind,text){modelMsg={kind,text:text||''};paintModelState();}
+function paintModelState(){
+  let kind=modelMsg.kind,text=modelMsg.text;
+  if(loaded){kind='on';text=`실행 중: ${loaded.name}${gpuFellBack?' · CPU':''}`;}
+  else if(!text&&cachedFlag&&!modelBusy&&!dlCtl)text='이 폰에 저장돼 있어요. 바로 불러올 수 있어요.';
+  $('#modelState').textContent=text;const es=$('#emptyState');if(es)es.textContent=text;
+  $('#dot').className='dot'+(kind==='on'?' on':kind==='busy'?' busy':kind==='err'?' err':'');
+}
+async function refreshModelUI(){
+  const m=curModel();
+  $('#modelName').textContent=loaded?loaded.name:(modelBusy?'준비 중…':dlCtl?'받는 중…':'모델 없음');
+  cachedFlag=await isCached(m);
+  const [label,sub]=dlCtl?['다운로드 취소','']:loaded?['다시 불러오기','']:cachedFlag?['불러오기','']:m.custom?['내 모델 다시 고르기','']:['다운로드하고 시작',MB(m.size)];
+  const em=$('#emptyMain');
+  [$('#mMain'),em].forEach(b=>{if(!b)return;b.textContent=label;b.classList.toggle('stack',!!sub);if(sub)b.appendChild(el('small',null,sub));});
+  $('#mMain').disabled=modelBusy;if(em)em.disabled=modelBusy;
+  $('#mUnload').disabled=!loaded||modelBusy;$('#mDelete').disabled=!cachedFlag||modelBusy||!!dlCtl;
+  $('#mDirect').href=directUrl(m.custom?MODELS.q4:m);const ed=$('#emptyDirect');if(ed)ed.href=directUrl(m.custom?MODELS.q4:m);
+  paintModelState();
+}
+async function mainModelAction(){
+  if(dlCtl){dlCtl.abort();return;}
+  if(modelBusy)return;
+  const m=curModel();
+  const c=await cachedBlob(m);
+  if(c){await loadBlob(c,m.short);return;}
+  if(m.custom){$('#ggufInput').click();return;}
+  if(APP){try{if(NAT.freeSpace()<m.size*1.05){toast('저장공간이 부족해요 ('+MB(m.size)+' 필요)');return;}}catch(e){}}
+  else{
+  if(!(await cacheOpen())){setModelState('err',NO_CACHE_MSG);refreshModelUI();return;}
+  try{const est=await navigator.storage?.estimate?.();if(est&&est.quota&&est.quota-est.usage<m.size*1.1){toast('저장공간이 부족해요 ('+MB(m.size)+' 필요)');return;}}catch(e){}
+  }
+  dlCtl=new AbortController();refreshModelUI();
+  const prog=$('#prog'),bar=$('#progBar'),txt=$('#progTxt');prog.hidden=false;
+  setModelState('busy','모델 받는 중… 와이파이를 권장해요');
+  try{
+    const {blob}=await download(m,(g,t)=>{const p=t?g/t*100:0;bar.style.width=p.toFixed(1)+'%';txt.textContent=`${MB(g)} / ${MB(t)} (${p.toFixed(0)}%)`;const es=$('#emptyState');if(es)es.textContent=`받는 중 ${p.toFixed(0)}%`;if(!gen)setStatus(`모델 받는 중 ${p.toFixed(0)}% · ${MB(g)} / ${MB(t)}`);},dlCtl.signal);
+    dlCtl=null;prog.hidden=true;txt.textContent='';
+    await loadBlob(blob,m.short);
+  }catch(e){
+    const aborted=e&&e.name==='AbortError';dlCtl=null;prog.hidden=true;txt.textContent='';if(!gen)setStatus('');
+    const msg=e&&e.message==='NO_CACHE'?NO_CACHE_MSG:friendly(e);
+    if(!aborted)lastError={stage:'모델 다운로드',raw:String(e&&(e.message||e)).slice(0,300),at:new Date().toLocaleString()};
+    setModelState(aborted?'':'err',aborted?'다운로드를 취소했어요.':msg);
+    if(!aborted)toast('모델 받기 실패');
+  }finally{refreshModelUI();}
+}
+$('#mMain').onclick=mainModelAction;
+$('#mFile').onclick=()=>$('#ggufInput').click();
+$('#mUnload').onclick=async()=>{if(gen||tagBusy){toast('답변이 끝난 뒤에 내릴 수 있어요');return;}await unload();setModelState('','메모리에서 내렸어요.');toast('모델을 내렸어요');};
+$('#mDelete').onclick=async()=>{if(!(await ask('이 폰에 저장된 모델 파일을 지울까요? 다시 쓰려면 새로 받아야 해요.','삭제')))return;await deleteCached();setModelState('','저장된 모델을 지웠어요.');refreshModelUI();};
+$('#modelPill').onclick=()=>openSettings();
+function renderModelOpts(){
+  const box=$('#modelOpts');box.innerHTML='';
+  const list=Object.entries(MODELS);
+  if(S.custom)list.push(['custom',{label:S.custom.short,sub:`내 모델 · ${MB(S.custom.size)}`}]);
+  list.forEach(([k,m])=>{
+    const o=el('label','opt'+(S.model===k?' sel':''));
+    const r=el('input');r.type='radio';r.name='model';r.value=k;r.checked=S.model===k;
+    r.onchange=()=>{S.model=k;save(LS_SET,S);renderModelOpts();setModelState('','');refreshModelUI();};
+    const d=el('div');d.appendChild(el('div','t',m.label));d.appendChild(el('div','s',m.sub));
+    o.append(r,d);box.appendChild(o);
+  });
+}
+
+// ---------- settings ----------
+const sw=(id,on)=>$(id).classList.toggle('on',!!on);
+['#tAuto','#tKeepAlive','#tGpu','#tDeep'].forEach(id=>{$(id).onclick=function(){this.classList.toggle('on');};});
+function openSettings(){
+  renderModelOpts();
+  $('#sJina').value=S.jinaKey;$('#sTemp').value=S.temp;$('#sMax').value=S.maxTokens;$('#sRep').value=S.rep;$('#sCtx').value=String(S.ctx);
+  sw('#tAuto',S.autoload);sw('#tKeepAlive',S.keepAlive!==false);sw('#tGpu',S.gpu);sw('#tDeep',S.deepRead);
+  openOverlay('sheet');refreshModelUI();diagnose();
+}
+$('#openSettings').onclick=openSettings;
+$('#saveSettings').onclick=()=>{
+  const ctxBefore=+S.ctx;
+  Object.assign(S,{jinaKey:$('#sJina').value.trim(),
+    temp:Math.min(1.5,Math.max(0,+$('#sTemp').value||DEFAULTS.temp)),maxTokens:Math.min(2048,Math.max(64,+$('#sMax').value||DEFAULTS.maxTokens)),
+    rep:Math.min(1.5,Math.max(1,+$('#sRep').value||DEFAULTS.rep)),ctx:+$('#sCtx').value||DEFAULTS.ctx,
+    autoload:$('#tAuto').classList.contains('on'),keepAlive:$('#tKeepAlive').classList.contains('on'),gpu:$('#tGpu').classList.contains('on'),deepRead:$('#tDeep').classList.contains('on')});
+  if(S.keepAlive&&loaded)startKeepAlive();else if(!S.keepAlive)stopKeepAlive();
+  save(LS_SET,S);closeOverlays();
+  toast(loaded&&ctxBefore!==+S.ctx?'저장했어요 · 기억 크기는 모델을 다시 불러오면 적용돼요':'저장했어요');
+};
+function saveBlob(blob,name){
+  if(APP){
+    blob.arrayBuffer().then(buf=>{
+      const u=new Uint8Array(buf);let bin='';for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));
+      toast(NAT.saveFile(name,blob.type||'application/octet-stream',btoa(bin))?`다운로드 폴더에 저장했어요 · ${name}`:'저장하지 못했어요');
+    }).catch(()=>toast('저장하지 못했어요'));
+    return;
+  }
+  const a=el('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000);}
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipOne(name,u8){
+  const nm=new TextEncoder().encode(name),crc=crc32(u8);
+  const lh=new Uint8Array(30+nm.length),l=new DataView(lh.buffer);
+  l.setUint32(0,0x04034b50,true);l.setUint16(4,20,true);l.setUint16(6,0x0800,true);l.setUint16(8,0,true);l.setUint16(10,0,true);l.setUint16(12,0x21,true);
+  l.setUint32(14,crc,true);l.setUint32(18,u8.length,true);l.setUint32(22,u8.length,true);l.setUint16(26,nm.length,true);l.setUint16(28,0,true);lh.set(nm,30);
+  const cd=new Uint8Array(46+nm.length),c=new DataView(cd.buffer);
+  c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);c.setUint16(12,0,true);c.setUint16(14,0x21,true);
+  c.setUint32(16,crc,true);c.setUint32(20,u8.length,true);c.setUint32(24,u8.length,true);c.setUint16(28,nm.length,true);cd.set(nm,46);
+  const eo=new Uint8Array(22),e=new DataView(eo.buffer);
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,1,true);e.setUint16(10,1,true);e.setUint32(12,cd.length,true);e.setUint32(16,lh.length+u8.length,true);
+  return new Blob([lh,u8,cd,eo],{type:'application/zip'});
+}
+const dlHtml=()=>{saveBlob(new Blob([PRISTINE],{type:'text/html'}),'Glok.html');toast('Glok.html을 저장해요');};
+$('#saveHtml').onclick=dlHtml;
+$('#topSaveHtml').onclick=dlHtml;
+$('#saveZip').onclick=()=>{saveBlob(zipOne('Glok.html',new TextEncoder().encode(PRISTINE)),'Glok.zip');toast('Glok.zip을 저장해요');};
+$('#exportChat').onclick=()=>{saveBlob(new Blob([JSON.stringify(chats,null,2)],{type:'application/json'}),'glok-chats-'+new Date().toISOString().slice(0,10)+'.json');};
+$('#clearChats').onclick=async()=>{
+  if(gen){toast('답변이 끝난 뒤에 지울 수 있어요');return;}
+  if(!(await ask('이 폰에 저장된 모든 대화를 지울까요? 이미지는 이미지 탭에 남아요.','모두 삭제')))return;
+  chats=[];chat=null;currentId='';messages=[];persistChats();closeOverlays();render();
+};
+async function diagnose(){
+  if(APP)return diagnoseApp();
+  const out=[];
+  out.push('대화 저장: '+(storageOK?'가능':'불가 (이 화면을 닫으면 대화가 사라져요)'));
+  const c=await cacheOpen();out.push('모델 저장: '+(c?'가능':'불가 (받은 모델 파일을 열어서 쓰세요)'));
+  out.push('이미지 저장: '+((await idb())?'가능':'불가 (이번에만 보관돼요)'));
+  try{const e=await navigator.storage?.estimate?.();if(e&&e.quota)out.push(`저장공간 여유: 약 ${MB(e.quota-e.usage)}`);}catch(e){}
+  let gpu='없음';try{if(navigator.gpu){const a=await navigator.gpu.requestAdapter();gpu=a?'사용 가능':'지원되지만 장치를 못 찾음';}}catch(e){gpu='오류';}
+  out.push('GPU 가속(WebGPU): '+gpu);
+  out.push('빠른 파일 읽기(JSPI): '+(WebAssembly.Suspending?'지원':'미지원 (호환 모드로 돌아요)'));
+  let m64=false;try{new (WebAssembly.Memory.__real||WebAssembly.Memory)({address:'i64',initial:1n});m64=true;}catch(e){}
+  out.push('대용량 메모리(Memory64): '+(m64?'지원':'미지원 (호환 모드로 돌아요)'));
+  out.push('동시 처리: '+(self.crossOriginIsolated?'멀티스레드':'단일 스레드 (로컬 파일로 열면 정상)'));
+  if(navigator.deviceMemory)out.push(`기기 메모리(대략): ${navigator.deviceMemory}GB`);
+  out.push(`엔진: wllama ${WLLAMA_VER}${loaded&&loaded.build?' · '+BUILD_LABEL[loaded.build]+(loaded.via?' (우회 시작)':''):''} · 주소 형식: ${location.protocol.replace(':','')}`);
+  if(lastSpeed)out.push(`최근 답변 속도: 읽기 ${lastSpeed.read?'약 '+lastSpeed.read.toFixed(1)+'토큰/초':'-'} · 쓰기 ${lastSpeed.write?'약 '+lastSpeed.write.toFixed(1)+'토큰/초':'-'}`);
+  out.push('화면 꺼짐 방지: '+(!('wakeLock' in navigator)?'이 주소에서는 안 돼요':wakeLockObj?'켜져 있음':S.keepAlive?'준비됨':'꺼짐'));
+  out.push('NovelAI: '+(NAI.key?naiStatusText():'연결 안 됨'));
+  out.push('브라우저: '+(navigator.userAgent.match(/(SamsungBrowser|Chrome|Firefox|Version)\/[\d.]+/g)||['?']).join(' '));
+  if(lastError)out.push(`마지막 오류: [${lastError.stage}] ${lastError.raw} (${lastError.at})`);
+  $('#diag').innerHTML=out.map(esc).join('<br>');
+}
+async function diagnoseApp(){
+  const out=[];let inf={},bg={},ai={};
+  try{inf=JSON.parse(NAT.engineInfo()||'{}');bg=JSON.parse(NAT.bgState()||'{}');ai=JSON.parse(NAT.appInfo()||'{}');}catch(e){}
+  out.push('대화 저장: '+(storageOK?'가능':'불가 (이 화면을 닫으면 대화가 사라져요)'));
+  out.push('이미지 저장: '+((await idb())?'가능':'불가 (이번에만 보관돼요)'));
+  try{out.push(`저장공간 여유: 약 ${MB(NAT.freeSpace())}`);}catch(e){}
+  const ii=inf.info||{};
+  out.push(`엔진: llama.cpp 네이티브 · CPU ${inf.threads||'?'}스레드${ii.model?' · '+ii.model:''}${ii.ctx?' · 기억 '+(ii.ctx-512):''}`);
+  const feats=String(ii.system||'').match(/\b(NEON|ARM_FMA|DOTPROD|MATMUL_INT8|SVE2?|SME|KLEIDIAI|AVX2|AVX512)\s*=\s*1/g);
+  if(feats)out.push('CPU 가속: '+[...new Set(feats.map(x=>x.replace(/\s*=\s*1/,'')))].join(' · '));
+  out.push('백그라운드 유지: '+(bg.battery?'배터리 제한 없음':'배터리 최적화 켜짐 (설정 필요)')+' · 알림 '+(bg.notif?'허용':'꺼짐'));
+  if(lastSpeed)out.push(`최근 답변 속도: 읽기 ${lastSpeed.read?'약 '+lastSpeed.read.toFixed(1)+'토큰/초':'-'} · 쓰기 ${lastSpeed.write?'약 '+lastSpeed.write.toFixed(1)+'토큰/초':'-'}`);
+  out.push('NovelAI: '+(NAI.key?naiStatusText():'연결 안 됨'));
+  out.push(`앱: Glok ${ai.version||''} · Android API ${ai.sdk||'?'} · ${ai.device||''}`);
+  if(lastError)out.push(`마지막 오류: [${lastError.stage}] ${lastError.raw} (${lastError.at})`);
+  $('#diag').innerHTML=out.map(esc).join('<br>');
+}
+
+// ---------- utils ----------
+function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('복사했어요')).catch(()=>{const ta=el('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('복사했어요');}catch(e){}ta.remove();});}
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400);}
+
+// ---------- installable manifest (inline, so the single file can be pinned where the browser allows) ----------
+try{
+  const icon='data:image/svg+xml,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='512' height='512'><rect width='512' height='512' rx='110' fill='black'/><text x='256' y='350' font-size='300' font-family='Arial,sans-serif' font-weight='700' fill='white' text-anchor='middle'>G</text></svg>");
+  const link=el('link');link.rel='manifest';link.href=URL.createObjectURL(new Blob([JSON.stringify({name:'Glok',short_name:'Glok',display:'standalone',background_color:'#000000',theme_color:'#000000',start_url:'.',icons:[{src:icon,sizes:'512x512',type:'image/svg+xml',purpose:'any'}]})],{type:'application/manifest+json'}));
+  document.head.appendChild(link);
+}catch(e){}
+
+// ---------- Background Keep-Alive & Notification Permission Modal ----------
+function updateBgStepsUI(){
+  const step2=$('#bgStep2'),num2=$('#bgNum2'),desc2=$('#bgDesc2'),btnNotif=$('#btnReqNotif');
+  const isLocalFile=location.protocol==='file:'||location.protocol==='content:';
+  if(APP){
+    paintAppBgModal();
+  }else if(window.GlokNative){
+    // inside the Glok app (APK) the app itself posts the status-bar notification; the default text applies
+  }else if(!('Notification' in window)||isLocalFile){
+    if(desc2)desc2.innerHTML='현재 로컬 파일(<code>'+esc(location.protocol)+'</code>)로 열려 있어 안드로이드 브라우저가 상단바 시스템 알림을 제한합니다. 앱 내부에서 <b>「💬 새 채팅이 있습니다」</b> 알림 바가 작동하며, 상단바 자체 아이콘 알림은 <b>Glok 앱(APK)</b>으로 열었을 때 작동합니다.';
+    if(btnNotif)btnNotif.textContent='확인 완료';
+  }else if(Notification.permission==='granted'){
+    if(step2)step2.classList.add('done');
+    if(num2)num2.textContent='✓';
+    if(btnNotif)btnNotif.textContent='✓ 알림 권한 허용됨';
+  }else if(Notification.permission==='denied'){
+    if(desc2)desc2.innerHTML='브라우저 주소창 왼쪽 자물쇠/설정 아이콘 → <b>권한 → 알림 허용</b>으로 변경해 주세요.';
+    if(btnNotif)btnNotif.textContent='알림 권한 차단됨 (주소창에서 허용)';
+  }
+}
+function paintAppBgModal(){
+  let st={};try{st=JSON.parse(NAT.bgState()||'{}');}catch(e){}
+  const s1=$('#bgStep1'),n1=$('#bgNum1'),d1=$('#bgDesc1'),s2=$('#bgStep2'),n2=$('#bgNum2'),b2=$('#btnReqNotif');
+  const t1=s1.querySelector('.st-top span:last-child');if(t1)t1.textContent='배터리 사용 제한 없음';
+  d1.textContent='화면이 꺼지거나 다른 앱을 봐도 Glok이 멈추지 않도록 배터리 최적화에서 Glok을 빼요.';
+  let b1=$('#btnReqBattery');
+  if(!b1){const a=el('div','st-act');b1=el('button','st-btn');b1.type='button';b1.id='btnReqBattery';b1.style.cssText=b2.style.cssText;b1.onclick=()=>{try{NAT.requestBatteryExemption();}catch(e){}};a.appendChild(b1);s1.appendChild(a);}
+  s1.classList.toggle('done',!!st.battery);n1.textContent=st.battery?'✓':'1';
+  b1.textContent=st.battery?'✓ 제한 없음으로 설정됨':'🔋 배터리 제한 해제 팝업 띄우기';
+  s2.classList.toggle('done',!!st.notif);n2.textContent=st.notif?'✓':'2';
+  b2.textContent=st.notif?'✓ 알림 권한 허용됨':st.notifBlocked?'🔔 알림 설정 열기':'🔔 알림 권한 팝업 띄우기';
+}
+function onNativePerm(e){
+  paintKaBadge();
+  const scrim=$('#bgModalScrim');
+  if(!scrim.hidden)paintAppBgModal();
+  const close=()=>{scrim.hidden=true;const btn=$('#bgModalConfirm');btn.disabled=false;btn.textContent='권한 요청 및 시작하기';};
+  if(e.finished&&bgSeqWait){
+    bgSeqWait=false;close();
+    toast(e.ready?'백그라운드 유지 및 새 채팅 알림 설정이 켜졌어요':'허용되지 않은 권한이 있어요. 다음에 앱을 열 때 다시 물어볼게요');
+  }else if(e.ready&&!scrim.hidden&&!bgSeqWait){
+    close();toast('백그라운드 유지 및 새 채팅 알림 설정이 켜졌어요');
+  }
+}
+function openBgModal(){
+  updateBgStepsUI();
+  $('#bgModalScrim').hidden=false;
+}
+$('#btnReqNotif').onclick=async()=>{
+  if(APP){let st={};try{st=JSON.parse(NAT.bgState()||'{}');}catch(e){}try{if(st.notif)return;if(st.notifBlocked)NAT.openAppSettings();else NAT.requestNotificationPermission();}catch(e){}return;}
+  if(window.GlokNative&&typeof window.GlokNative.enableBackgroundMode==='function'){ // the app (APK) asks for the permission itself
+    try{window.GlokNative.enableBackgroundMode();}catch(e){}
+    $('#bgStep2').classList.add('done');$('#bgNum2').textContent='✓';return;
+  }
+  if('Notification' in window&&(location.protocol==='https:'||location.hostname==='localhost')){
+    try{
+      const perm=await Notification.requestPermission();
+      updateBgStepsUI();
+      if(perm==='granted'){
+        toast('알림 권한이 허용되었어요!');
+        sendSystemNotification('새 채팅이 있습니다','Glok 알림이 정상적으로 연결되었어요.');
+      }else{
+        toast('주소창 왼쪽 아이콘 → 권한에서 알림을 허용해 주세요');
+      }
+    }catch(e){updateBgStepsUI();}
+  }else{
+    $('#bgStep2').classList.add('done');
+    $('#bgNum2').textContent='✓';
+    toast('로컬 파일 모드에서는 앱 내 「새 채팅이 있습니다」 알림 바가 작동합니다');
+  }
+};
+$('#kaBadge').onclick=()=>openBgModal();
+$('#kakaoBanner').onclick=()=>{
+  setTab('chat');toBottom();hideNewChatIndicators();
+};
+$('#newChatPill').onclick=()=>{
+  toBottom();hideNewChatIndicators();
+};
+scroll.addEventListener('scroll',()=>{
+  // reaching the bottom clears the "new chat" bar; the top banner keeps its few seconds (the chat scrolls itself when the app comes back)
+  if(nearBottom()){const p=$('#newChatPill');if(p)p.hidden=true;document.title='Glok';}
+},{passive:true});
+$('#bgModalConfirm').onclick=async()=>{
+  const btn=$('#bgModalConfirm');
+  btn.disabled=true;btn.textContent='적용 중…';
+  S.keepAlive=true;S.osBgConfigured=true;save(LS_SET,S);
+  const swEl=$('#tKeepAlive');if(swEl)swEl.classList.add('on');
+  if(APP){bgSeqWait=true;try{NAT.setKeepAlive(true);NAT.enableBackgroundMode();}catch(e){bgSeqWait=false;$('#bgModalScrim').hidden=true;btn.disabled=false;btn.textContent='권한 요청 및 시작하기';}return;}
+  // If running inside the Glok Android APK, trigger native OS battery exemption popup + ForegroundService + Notification permission!
+  if(window.GlokNative&&typeof window.GlokNative.enableBackgroundMode==='function'){
+    try{window.GlokNative.enableBackgroundMode();}catch(e){}
+  }
+  await startKeepAlive();
+  if('Notification' in window&&Notification.permission==='default'&&(location.protocol==='https:'||location.hostname==='localhost')){
+    try{await Notification.requestPermission();}catch(e){}
+  }
+  $('#bgModalScrim').hidden=true;
+  btn.disabled=false;btn.textContent='권한 요청 및 시작하기';
+  toast('백그라운드 유지 및 새 채팅 알림 설정이 켜졌어요');
+};
+$('#openBgGuide').onclick=()=>{closeOverlays();openBgModal();};
+
+// ---------- boot ----------
+applyChips();render();autosize();
+if(APP){
+  try{NAT.chatAbortAll();NAT.setKeepAlive(!!S.keepAlive);}catch(e){} // a page restarted by the app drops what its last life left running
+  const g=$('#tGpu'),row=g&&g.closest('.tog');if(row)row.style.display='none'; // the app runs on the phone's CPU cores
+  $('#ggufInput').click=()=>nativePick();
+}
+function nativePick(){
+  if(modelBusy||natPick){toast('모델을 준비하는 중이에요. 잠시만요');return;}
+  natPick=e=>{
+    if(!e.done){const p=e.total>0?Math.floor(e.got/e.total*100)+'%':MB(e.got);setModelState('busy',`모델 파일 복사 중 ${p}`);if(!gen)setStatus(`모델 파일 복사 중 ${p}`);return;}
+    natPick=null;if(!gen)setStatus('');
+    if(e.ok){const f={name:e.name||e.file,file:e.file,size:e.size};loadBlob({native:true,file:e.file,size:e.size},nameFor(f),f);}
+    else if(e.aborted){setModelState('','');refreshModelUI();}
+    else{setModelState('err',e.error||'모델 파일을 열지 못했어요');toast('불러오기 실패');refreshModelUI();}
+  };
+  try{NAT.modelPick();}catch(e){natPick=null;}
+}
+// Always check real-time keep-alive state on entry: if not actively running, show the one-touch popup automatically
+ensureKeepAliveOrPrompt();
+(async()=>{
+  await refreshModelUI();
+  let crashed=null;try{crashed=JSON.parse(localStorage.getItem(LS_LOADING)||'null');}catch(e){}
+  if(crashed){
+    clearLoading();
+    lastError={stage:'모델 올리기',raw:`모델(${crashed.name})을 올리는 중에 앱이 닫힘`,at:new Date(crashed.at).toLocaleString()};
+    setModelState('err','지난번에 모델을 올리다가 앱이 닫혔어요. 메모리가 모자랐을 가능성이 커요. 다른 앱을 닫고 다시 불러오거나, 설정에서 기억 크기를 2048로 낮추거나 가벼운 모델로 바꿔 보세요.');
+    toast('지난번에 모델을 올리다가 앱이 닫혔어요. 자세한 내용은 설정에 있어요');
+    return;
+  }
+  if(S.autoload){const m=curModel();const b=await cachedBlob(m);if(b)loadBlob(b,m.short);}
+})();
+</script>
+</body>
+</html>
