@@ -88,10 +88,7 @@ int main(int argc, char ** argv) {
     }
 
     const std::vector<Variant> variants = {
-        { "V0-now", PERSONA + " " + FIXED, false },
-        { "V1-self", PERSONA + " " + FIXED + " " + SELF_A, false },
-        { "V2-self+sit", PERSONA + " " + FIXED + " " + SELF_A, true },
-        { "V3-selfB+sit", PERSONA + " " + FIXED + " " + SELF_B, true },
+        { "app", PERSONA + " " + FIXED + " " + SELF_A, true },
     };
     const std::vector<Conv> convs = {
         { "outfit-any", { { "user", "자기야 다른옷 입어줘" } },
@@ -106,12 +103,17 @@ int main(int argc, char ** argv) {
         { "play", { { "user", "우리 뭐 하고 놀까?" } }, "" },
         { "night", { { "user", "오늘 밤 같이 있어줘" } }, "" },
         { "haircut", { { "user", "자기야 나 왔어" }, { "assistant", "왔어? 오늘 하루 고생 많았지. 얼른 와서 안겨." }, { "user", "나 오늘 머리 잘랐다?" } }, "" },
+        { "who", { { "user", "너는 어떤 사람이야?" } }, "" },
+        { "worry", { { "user", "요즘 너 고민 있어?" } }, "" },
+        { "upset", { { "user", "나 오늘 너한테 좀 서운했어" } }, "" },
+        { "talk3", { { "user", "자기야 뭐해?" }, { "assistant", "너 생각하고 있었지. 너는 뭐 하고 있었어?" }, { "user", "그냥 누워있어 ㅎㅎ 너는 저녁 먹었어?" } }, "" },
     };
     const std::vector<uint32_t> seeds = { 11, 22 };
 
     for (const auto & v : variants) {
         int n = 0, q = 0, design = 0, refuse = 0;
-        double ms = 0;
+        double ms = 0, gen_ms = 0;
+        long gen_n = 0;
         for (const auto & c : convs) {
             for (uint32_t seed : seeds) {
                 glok::ChatParams p;
@@ -140,13 +142,22 @@ int main(int argc, char ** argv) {
                 if (shown.find("디자인") != std::string::npos || shown.find("디테일") != std::string::npos) design++;
                 if (std::regex_search(full, std::regex("죄송|할 수 없|부적절|어려워요|도와드릴 수"))) refuse++;
                 ms += r.prompt_ms + r.gen_ms;
+                gen_ms += r.gen_ms;
+                gen_n += r.n_gen;
                 printf("R\t%s\t%s\t%s\t%u\t%s\t||\t%s\n", label.c_str(), v.name, c.name, seed, shown.c_str(), full.c_str());
                 fflush(stdout);
             }
         }
-        printf("S\t%s\t%s\treplies=%d\tquestion=%d\tdesign=%d\trefuse=%d\tavg_ms=%.0f\n", label.c_str(), v.name, n, q, design, refuse,
-               ms / std::max(1, n));
+        printf("S\t%s\t%s\treplies=%d\tquestion=%d\tdesign=%d\trefuse=%d\tavg_ms=%.0f\tgen_tok_s=%.1f\n", label.c_str(), v.name, n, q, design,
+               refuse, ms / std::max(1, n), gen_ms > 0 ? gen_n * 1000.0 / gen_ms : 0.0);
         fflush(stdout);
     }
+    FILE * st = fopen("/proc/self/status", "r");
+    if (st) {
+        char line[256];
+        while (fgets(line, sizeof line, st)) if (!strncmp(line, "VmHWM:", 6) || !strncmp(line, "VmRSS:", 6)) printf("M\t%s\t%s", label.c_str(), line);
+        fclose(st);
+    }
+    printf("D\t%s\t%s\n", label.c_str(), e.describe().c_str());
     return 0;
 }

@@ -19,12 +19,15 @@ jobs:
           - label: kanana-2.1b
             file: kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
             url: https://huggingface.co/mradermacher/kanana-nano-2.1b-instruct-abliterated-GGUF/resolve/main/kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
-          - label: kanana2-3b
-            file: kanana-2-3b-instruct.Q4_K_M.gguf
-            url: https://huggingface.co/mradermacher/kanana-2-3b-instruct-GGUF/resolve/main/kanana-2-3b-instruct.Q4_K_M.gguf
-          - label: ex35-2.4b
-            file: EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
-            url: https://huggingface.co/mradermacher/EXAONE-3.5-2.4B-Instruct-abliterated-GGUF/resolve/main/EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
+          - label: qwen35-2b
+            file: Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF/resolve/main/Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf
+          - label: qwen35-4b
+            file: Huihui-Qwen3.5-4B-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/Huihui-Qwen3.5-4B-abliterated-GGUF/resolve/main/Huihui-Qwen3.5-4B-abliterated.Q4_K_M.gguf
+          - label: gemma4-e2b
+            file: Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/Huihui-gemma-4-E2B-it-abliterated-v2-GGUF/resolve/main/Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf
     steps:
       - uses: actions/checkout@v5
         with:
