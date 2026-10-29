@@ -104,9 +104,21 @@ sleep 3
 if fgs; then say "restored app runs in the foreground service again"; else say "FAIL restored app has no foreground service"; fail=1; fi
 loads1=$(loads)
 adb shell am start -W -n $PKG/.MainActivity --es selftest "$(base64 -w0 ci/selftest4.js)" >/dev/null
-if wait_log "GLOK_SELFTEST reply4" 400; then say "opened after the restore: answered"; else say "FAIL no answer after the restore"; fail=1; fi
-if [ "$(loads)" = "$loads1" ]; then say "opening the app did not load the model again"; else say "FAIL opening the app loaded the model again"; fail=1; fi
+if wait_log "GLOK_SELFTEST restored" 150; then
+  r=$(adb logcat -d -s GlokJS:I | grep "GLOK_SELFTEST restored" | tail -1 | sed -E 's/.*restored ([0-9.]+s).*/\1/')
+  say "opened after the restore: model ready in $r"
+else
+  say "FAIL model not ready after the restore"; fail=1
+fi
 sleep 2; shot 06-after-restore
+if wait_log "GLOK_SELFTEST sent4" 60; then
+  sleep 1
+  adb shell input keyevent KEYCODE_HOME
+  if wait_log "GLOK_SELFTEST reply4" 400; then say "answered after the restore"; else say "FAIL no answer after the restore"; fail=1; fi
+else
+  say "FAIL message after the restore not sent"; fail=1
+fi
+if [ "$(loads)" = "$loads1" ]; then say "opening the app did not load the model again"; else say "FAIL opening the app loaded the model again"; fail=1; fi
 
 adb logcat -d -s GlokJS:I GlokEngine:I glok:I llama:W GlokMain:W GlokKeeper:W GlokService:I GlokModels:W GlokBridge:W AndroidRuntime:E > "$OUT/glok-log.txt"
 adb logcat -d > "$OUT/logcat-full.txt"

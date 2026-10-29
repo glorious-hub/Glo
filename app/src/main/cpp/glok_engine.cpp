@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <unistd.h>
 
@@ -118,6 +119,10 @@ std::string ChatResult::to_json() const {
 void Engine::init_backends(const std::string & dir) {
 #ifdef __ANDROID__
     llama_log_set(log_cb, nullptr);
+    // OpenMP must not pin its threads to the cores the app had when it first ran a model: Android moves the app
+    // between core groups as it goes to and from the background (and may load the model in the background after
+    // closing the app for memory), and pinned threads would stay on the slow cores
+    setenv("KMP_AFFINITY", "disabled", 0);
 #endif
     if (!dir.empty()) {
         ggml_backend_load_all_from_path(dir.c_str());
