@@ -1,0 +1,66 @@
+[1/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml.cpp.o
+[2/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-alloc.c.o
+[3/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-backend.cpp.o
+[4/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-opt.cpp.o
+[5/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml.c.o
+[6/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-threading.cpp.o
+[7/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o
+[8/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-backend-meta.cpp.o
+[9/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o
+[10/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/hbm.cpp.o
+[11/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/gguf.cpp.o
+[12/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/quants.c.o
+[13/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/traits.cpp.o
+[14/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/amx.cpp.o
+[15/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/amx/mmq.cpp.o
+[16/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-quants.c.o
+[17/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/tiled/tiled-kernel.cpp.o
+[18/139] Linking CXX shared library bin/libggml-base.so.0.25.3
+[19/139] Creating library symlink bin/libggml-base.so.0 bin/libggml-base.so
+[20/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/binary-ops.cpp.o
+[21/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/repack.cpp.o
+[22/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/vec.cpp.o
+[23/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/tiled/tiled.cpp.o
+[24/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/unary-ops.cpp.o
+[25/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/quants.c.o
+[26/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml.dir/ggml-backend-dl.cpp.o
+[27/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml.dir/ggml-backend-reg.cpp.o
+[28/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/llamafile/sgemm.cpp.o
+[29/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_9_cxx.cxx.o
+[30/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/arch/x86/repack.cpp.o
+[31/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_7_cxx.cxx.o
+[32/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_6_cxx.cxx.o
+[33/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_8_cxx.cxx.o
+[34/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ops.cpp.o
+[35/139] Linking CXX shared library bin/libggml-cpu.so.0.25.3
+[36/139] Creating library symlink bin/libggml-cpu.so.0 bin/libggml-cpu.so
+[37/139] Linking CXX shared library bin/libggml.so.0.25.3
+[38/139] Creating library symlink bin/libggml.so.0 bin/libggml.so
+[39/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_5_cxx.cxx.o
+[40/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_4_cxx.cxx.o
+[41/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_3_cxx.cxx.o
+[42/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_2_cxx.cxx.o
+[43/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_0_cxx.cxx.o
+[44/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama.cpp.o
+[45/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-adapter.cpp.o
+[46/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-arch.cpp.o
+[47/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/Unity/unity_1_cxx.cxx.o
+[48/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-cparams.cpp.o
+[49/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-batch.cpp.o
+[50/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-chat.cpp.o
+[51/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-hparams.cpp.o
+[52/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-impl.cpp.o
+[53/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-io.cpp.o
+[54/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-context.cpp.o
+[55/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-graph.cpp.o
+[56/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-grammar.cpp.o
+[57/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-kv-cache-iswa.cpp.o
+[58/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-kv-cache-dsa.cpp.o
+[59/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-kv-cache-dsa-iswa.cpp.o
+[60/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-kv-cache-msa.cpp.o
+[61/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-memory.cpp.o
+[62/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-memory-hybrid.cpp.o
+[63/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-kv-cache.cpp.o
+[64/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-memory-hybrid-iswa.cpp.o
+[65/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-kv-cache-dsv4.cpp.o
+[66/139] Building CXX object build-llama/src/CMakeFiles/llama.dir/llama-mmap.cpp.o
