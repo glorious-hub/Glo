@@ -1,0 +1,10 @@
+[1/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-alloc.c.o
+[2/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml.cpp.o
+[3/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-opt.cpp.o
+[4/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-threading.cpp.o
+[5/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-backend.cpp.o
+[6/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml.c.o
+[7/139] Building C object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.c.o
+[8/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/ggml-cpu.cpp.o
+[9/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-base.dir/ggml-backend-meta.cpp.o
+[10/139] Building CXX object build-llama/ggml/src/CMakeFiles/ggml-cpu.dir/ggml-cpu/hbm.cpp.o
