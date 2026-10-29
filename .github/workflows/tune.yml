@@ -19,15 +19,15 @@ jobs:
           - label: kanana-2.1b
             file: kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
             url: https://huggingface.co/mradermacher/kanana-nano-2.1b-instruct-abliterated-GGUF/resolve/main/kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
-          - label: qwen35-2b
-            file: Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf
-            url: https://huggingface.co/mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF/resolve/main/Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf
-          - label: qwen35-4b
-            file: Huihui-Qwen3.5-4B-abliterated.Q4_K_M.gguf
-            url: https://huggingface.co/mradermacher/Huihui-Qwen3.5-4B-abliterated-GGUF/resolve/main/Huihui-Qwen3.5-4B-abliterated.Q4_K_M.gguf
           - label: gemma4-e2b
             file: Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf
             url: https://huggingface.co/mradermacher/Huihui-gemma-4-E2B-it-abliterated-v2-GGUF/resolve/main/Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf
+          - label: ex35-2.4b
+            file: EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/EXAONE-3.5-2.4B-Instruct-abliterated-GGUF/resolve/main/EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
+          - label: ex4-1.2b
+            file: Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/Huihui-EXAONE-4.0-1.2B-abliterated-GGUF/resolve/main/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
     steps:
       - uses: actions/checkout@v5
         with:
@@ -51,7 +51,8 @@ jobs:
         run: |
           mkdir -p ci-logs
           ./build-host/tune "model/${{ matrix.file }}" ${{ matrix.label }} > ci-logs/tune-${{ matrix.label }}.txt 2> ci-logs/tune-${{ matrix.label }}.err || echo "::error::tune exited with $?"
-          grep '^S' ci-logs/tune-${{ matrix.label }}.txt || true
+          grep -E '^(S|M|L)' ci-logs/tune-${{ matrix.label }}.txt || true
+          grep -i 'lazy read' ci-logs/tune-${{ matrix.label }}.err || true
       - name: Push results
         if: always()
         env:

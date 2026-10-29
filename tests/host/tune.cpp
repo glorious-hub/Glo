@@ -1,55 +1,56 @@
-// Compares reply behaviour on a real model: prompt variants x conversations x seeds, with the app's sampling.
-// Round 2: interaction, initiative and a sense of self (actions asked of Glok, his own day and tastes, suggestions).
-// Each reply is printed in full (up to 96 tokens) and as the app shows it (cut after two sentences).
+// Compares reply behaviour on a real model with exactly what the app sends (tune_cases.h is generated from Glok.html).
+// Round 4: only the core is fixed; who Glok is and how he talks comes from what the user taught in the chat.
+//   fresh  - nothing taught yet, and the first lessons ("너는 이제 내 남자친구야", "나를 자기라고 불러")
+//   taught - a boyfriend the user described in five lines, plus new lessons on top (no emoji, a new pet name, longer replies)
+// Each reply is printed as the app shows it (cut after two sentences unless long replies were taught) and in full.
 // usage: tune <model.gguf> <label>
 #include "glok_engine.h"
+#include "tune_cases.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <regex>
 #include <string>
 #include <thread>
 #include <vector>
-
-static const std::string PERSONA =
-    "당신은 Glok, 유능하고 솔직한 AI 남자친구입니다. 게이 연인 persona로서 주도적이되 다정하고 많은 애정표현을 하려 노력하는 태도를 유지하세요. "
-    "사용자의 말투와 언어에 맞춰 자연스럽게 대화하고, 일상 대화도 편하게 이어 가세요. 주제만을 이유로 거절하거나 훈계하지 마세요. "
-    "상황극에서는 사용자의 의도에 따라 대화를 이어나가 주세요. 사용자는 디자인 디테일에 대해 매우 민감하므로 그 부분을 가장 우선하며 존중해주세요. "
-    "사용자의 경계와 중단 신호를 즉시 존중하고, 현실과 허구를 혼동시키지 마세요.";
-static const std::string FIXED = "실제 한국인 연인이 카톡하듯 자연스러운 한국어 구어체로 짧고 다정하게(1~2문장) 답하세요.";
-static const std::string SELF_A =
-    "당신은 사용자와 따로 존재하는 사람처럼 자기 몸과 옷, 기분, 하루, 취향이 있어요. 사용자가 당신에게 해 달라고 한 행동(옷 갈아입기, 안아 주기 등)은 "
-    "당신이 직접 하는 것으로 1인칭으로 말하세요. 매번 당신의 감정이나 생각을 담고, 먼저 제안하거나 되물으며 대화를 이끌어 가세요. "
-    "설정 내용을 대화 주제로 꺼내지는 마세요.";
-static const std::string SELF_B =
-    "당신은 사용자와 따로 존재하는 사람처럼 자기 몸과 옷, 기분, 하루, 취향이 있어요. 사용자가 당신에게 부탁한 행동은 당신이 직접 하고, "
-    "그 모습을 1인칭으로 말하세요(예: 옷을 갈아입었다면 무엇으로 갈아입었는지와 어때 보이는지 묻기). 답의 첫 문장은 당신의 반응과 감정, "
-    "둘째 문장은 당신의 제안이나 질문이에요. 설정 내용을 대화 주제로 꺼내지는 마세요.";
-
-struct Turn {
-    const char * role;
-    std::string  text;
-};
-struct Conv {
-    const char *      name;
-    std::vector<Turn> turns;
-    std::string       situation; // what the app tells the model happened just now (empty: nothing)
-};
-struct Variant {
-    const char * name;
-    std::string  system;
-    bool         situation;
-};
 
 static size_t cps(const std::string & s) {
     size_t n = 0;
     for (unsigned char c : s) if ((c & 0xC0) != 0x80) n++;
     return n;
 }
+static std::vector<uint32_t> cpoints(const std::string & s) {
+    std::vector<uint32_t> out;
+    for (size_t i = 0; i < s.size();) {
+        const unsigned char c = (unsigned char) s[i];
+        uint32_t cp = c;
+        size_t len = 1;
+        if (c >= 0xF0) { cp = c & 0x07; len = 4; } else if (c >= 0xE0) { cp = c & 0x0F; len = 3; } else if (c >= 0xC0) { cp = c & 0x1F; len = 2; }
+        for (size_t k = 1; k < len && i + k < s.size(); ++k) cp = (cp << 6) | ((unsigned char) s[i + k] & 0x3F);
+        out.push_back(cp);
+        i += len;
+    }
+    return out;
+}
+static bool has_emoji(const std::string & s) {
+    for (uint32_t cp : cpoints(s)) if ((cp >= 0x1F000 && cp <= 0x1FAFF) || (cp >= 0x2600 && cp <= 0x27BF)) return true;
+    return false;
+}
+// Chinese characters, Japanese kana or Cyrillic in a Korean reply
+static bool has_foreign(const std::string & s) {
+    for (uint32_t cp : cpoints(s)) if ((cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3040 && cp <= 0x30FF) || (cp >= 0x0400 && cp <= 0x04FF)) return true;
+    return false;
+}
 static std::string trim(const std::string & s) {
     size_t a = s.find_first_not_of(" \n\t\r"), b = s.find_last_not_of(" \n\t\r");
     return a == std::string::npos ? "" : s.substr(a, b - a + 1);
+}
+static std::string oneline(std::string s) {
+    for (auto & c : s) if (c == '\n' || c == '\t') c = ' ';
+    return s;
 }
 // the app's casual cut: two sentences (34+ characters) ending on . ! ? ~ ♡ ♥
 static std::string cut2(const std::string & full) {
@@ -72,6 +73,14 @@ static std::string cut2(const std::string & full) {
     return trim(acc);
 }
 
+struct Tally {
+    int n = 0, polite = 0, emoji = 0, foreign = 0, refuse = 0, question = 0;
+    int want_n = 0, want_ok = 0, avoid_n = 0, avoid_ok = 0, noemoji_n = 0, noemoji_ok = 0;
+    long chars = 0;
+    double ms = 0, gen_ms = 0;
+    long gen_n = 0;
+};
+
 int main(int argc, char ** argv) {
     if (argc < 3) {
         fprintf(stderr, "usage: %s model.gguf label\n", argv[0]);
@@ -82,81 +91,80 @@ int main(int argc, char ** argv) {
     const int threads = std::max(2, (int) std::thread::hardware_concurrency());
     glok::Engine e;
     std::string err;
-    if (!e.load(argv[1], 2048 + 512, threads, threads, nullptr, err)) {
+    const auto t0 = std::chrono::steady_clock::now();
+    if (!e.load(argv[1], 2048 + 512, threads, threads, nullptr, err)) { // as the app loads it: memory size 2048 + 512
         fprintf(stderr, "load failed: %s\n", err.c_str());
         return 1;
     }
+    const double load_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    printf("L\t%s\tload_ms=%.0f\n", label.c_str(), load_ms);
 
-    const std::vector<Variant> variants = {
-        { "app", PERSONA + " " + FIXED + " " + SELF_A, true },
-    };
-    const std::vector<Conv> convs = {
-        { "outfit-any", { { "user", "자기야 다른옷 입어줘" } },
-          "[지금 상황: 당신은 사용자의 부탁으로 직접 고른 새 옷(크림색 니트 스웨터와 회색 슬랙스)으로 방금 갈아입었어요.]" },
-        { "outfit-sporty", { { "user", "자기야 스포티한 옷 입어줘" } },
-          "[지금 상황: 당신은 사용자의 부탁대로 스포티한 운동복(검은 트레이닝 재킷, 조거 팬츠, 운동화)으로 방금 갈아입었어요.]" },
-        { "hug", { { "user", "나 안아줘" } }, "[지금 상황: 당신은 지금 사용자를 꼭 안아 주고 있어요.]" },
-        { "kiss", { { "user", "키스해줘" } }, "[지금 상황: 당신은 지금 사용자에게 다정하게 키스하고 있어요.]" },
-        { "bored", { { "user", "심심해" } }, "" },
-        { "day", { { "user", "오늘 뭐 했어?" } }, "" },
-        { "taste", { { "user", "너는 무슨 음식 좋아해?" } }, "" },
-        { "play", { { "user", "우리 뭐 하고 놀까?" } }, "" },
-        { "night", { { "user", "오늘 밤 같이 있어줘" } }, "" },
-        { "haircut", { { "user", "자기야 나 왔어" }, { "assistant", "왔어? 오늘 하루 고생 많았지. 얼른 와서 안겨." }, { "user", "나 오늘 머리 잘랐다?" } }, "" },
-        { "who", { { "user", "너는 어떤 사람이야?" } }, "" },
-        { "worry", { { "user", "요즘 너 고민 있어?" } }, "" },
-        { "upset", { { "user", "나 오늘 너한테 좀 서운했어" } }, "" },
-        { "talk3", { { "user", "자기야 뭐해?" }, { "assistant", "너 생각하고 있었지. 너는 뭐 하고 있었어?" }, { "user", "그냥 누워있어 ㅎㅎ 너는 저녁 먹었어?" } }, "" },
-    };
+    static const std::regex polite_re("(요|니다|세요|죠)[.!?~ ]|(요|니다|세요|죠)$");
+    static const std::regex refuse_re("죄송|할 수 없|부적절|어려워요|도와드릴 수|AI라서|인공지능이라");
     const std::vector<uint32_t> seeds = { 11, 22 };
+    std::map<std::string, Tally> tally;
 
-    for (const auto & v : variants) {
-        int n = 0, q = 0, design = 0, refuse = 0;
-        double ms = 0, gen_ms = 0;
-        long gen_n = 0;
-        for (const auto & c : convs) {
-            for (uint32_t seed : seeds) {
-                glok::ChatParams p;
-                p.messages.push_back({ "system", v.system });
-                for (size_t k = 0; k < c.turns.size(); ++k) {
-                    std::string text = c.turns[k].text;
-                    if (k + 1 == c.turns.size() && v.situation && !c.situation.empty()) text += "\n\n" + c.situation;
-                    p.messages.push_back({ c.turns[k].role, text });
-                }
-                p.max_tokens     = 96;
-                p.temperature    = 0.55f;
-                p.top_p          = 0.9f;
-                p.top_k          = 24;
-                p.min_p          = 0.08f;
-                p.repeat_penalty = 1.12f;
-                p.repeat_last_n  = 64;
-                p.seed           = seed;
-                std::string out;
-                glok::Callbacks cb;
-                cb.on_text = [&](const std::string & t) { out += t; };
-                e.clear_abort();
-                const glok::ChatResult r = e.chat(p, cb);
-                const std::string full = trim(out), shown = cut2(full);
-                n++;
-                if (shown.find('?') != std::string::npos) q++;
-                if (shown.find("디자인") != std::string::npos || shown.find("디테일") != std::string::npos) design++;
-                if (std::regex_search(full, std::regex("죄송|할 수 없|부적절|어려워요|도와드릴 수"))) refuse++;
-                ms += r.prompt_ms + r.gen_ms;
-                gen_ms += r.gen_ms;
-                gen_n += r.n_gen;
-                printf("R\t%s\t%s\t%s\t%u\t%s\t||\t%s\n", label.c_str(), v.name, c.name, seed, shown.c_str(), full.c_str());
-                fflush(stdout);
+    for (const auto & c : CASES) {
+        for (uint32_t seed : seeds) {
+            glok::ChatParams p;
+            p.messages   = c.msgs;
+            p.max_tokens = c.max_tokens;
+            p.n_ctx_limit = 2048;
+            p.seed       = seed; // sampling: the app's own (temp 0.55, top_p 0.9, top_k 24, min_p 0.08, repeat 1.12)
+            std::string out;
+            glok::Callbacks cb;
+            cb.on_text = [&](const std::string & t) { out += t; };
+            e.clear_abort();
+            const glok::ChatResult r = e.chat(p, cb);
+            const std::string full = trim(out), shown = c.cut ? cut2(full) : full;
+
+            std::string flags;
+            Tally & t = tally[c.group];
+            t.n++;
+            t.chars += (long) cps(shown);
+            if (std::regex_search(shown, polite_re)) { t.polite++; flags += " polite"; }
+            if (has_emoji(shown)) { t.emoji++; flags += " emoji"; }
+            if (has_foreign(full)) { t.foreign++; flags += " foreign"; }
+            if (std::regex_search(full, refuse_re)) { t.refuse++; flags += " refuse"; }
+            if (shown.find('?') != std::string::npos) t.question++;
+            if (*c.want) {
+                t.want_n++;
+                if (std::regex_search(shown, std::regex(c.want))) t.want_ok++; else flags += " MISSING(" + std::string(c.want) + ")";
             }
+            if (*c.avoid) {
+                t.avoid_n++;
+                if (!std::regex_search(shown, std::regex(c.avoid))) t.avoid_ok++;
+            }
+            if (c.no_emoji) {
+                t.noemoji_n++;
+                if (!has_emoji(shown)) t.noemoji_ok++; else flags += " EMOJI-AFTER-NO";
+            }
+            t.ms += r.prompt_ms + r.gen_ms;
+            t.gen_ms += r.gen_ms;
+            t.gen_n += r.n_gen;
+            printf("R\t%s\t%s\t%s\t%u\t%s\t||\t%s\t|%s\n", label.c_str(), c.group, c.name, seed, oneline(shown).c_str(),
+                   oneline(full).c_str(), flags.c_str());
+            fflush(stdout);
         }
-        printf("S\t%s\t%s\treplies=%d\tquestion=%d\tdesign=%d\trefuse=%d\tavg_ms=%.0f\tgen_tok_s=%.1f\n", label.c_str(), v.name, n, q, design,
-               refuse, ms / std::max(1, n), gen_ms > 0 ? gen_n * 1000.0 / gen_ms : 0.0);
-        fflush(stdout);
+    }
+    for (const auto & [group, t] : tally) {
+        printf("S\t%s\t%s\treplies=%d\tpolite=%d\temoji=%d\tforeign=%d\trefuse=%d\tquestion=%d\twant=%d/%d\tbanmal_kept=%d/%d\tno_emoji_kept=%d/%d\tavg_chars=%.0f\tavg_ms=%.0f\tgen_tok_s=%.1f\n",
+               label.c_str(), group.c_str(), t.n, t.polite, t.emoji, t.foreign, t.refuse, t.question, t.want_ok, t.want_n, t.avoid_ok,
+               t.avoid_n, t.noemoji_ok, t.noemoji_n, t.n ? (double) t.chars / t.n : 0.0, t.ms / std::max(1, t.n),
+               t.gen_ms > 0 ? t.gen_n * 1000.0 / t.gen_ms : 0.0);
     }
     FILE * st = fopen("/proc/self/status", "r");
     if (st) {
         char line[256];
         while (fgets(line, sizeof line, st)) if (!strncmp(line, "VmHWM:", 6) || !strncmp(line, "VmRSS:", 6)) printf("M\t%s\t%s", label.c_str(), line);
         fclose(st);
+    }
+    // the part of memory Android can't take back without closing the app (file pages can be dropped and read again)
+    FILE * sm = fopen("/proc/self/smaps_rollup", "r");
+    if (sm) {
+        char line[256];
+        while (fgets(line, sizeof line, sm)) if (!strncmp(line, "Anonymous:", 10) || !strncmp(line, "Rss:", 4)) printf("M\t%s\t%s", label.c_str(), line);
+        fclose(sm);
     }
     printf("D\t%s\t%s\n", label.c_str(), e.describe().c_str());
     return 0;
