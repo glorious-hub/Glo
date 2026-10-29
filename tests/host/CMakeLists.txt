@@ -14,3 +14,8 @@ add_subdirectory(${LLAMA_SRC} build-llama)
 add_executable(engine_test engine_test.cpp ${GLOK_CPP}/glok_engine.cpp)
 target_include_directories(engine_test PRIVATE ${GLOK_CPP} ${LLAMA_SRC}/common ${LLAMA_SRC}/include ${LLAMA_SRC}/ggml/include)
 target_link_libraries(engine_test PRIVATE llama llama-common)
+
+# reply style comparison on a real model (not part of the regular build)
+add_executable(tune tune.cpp ${GLOK_CPP}/glok_engine.cpp)
+target_include_directories(tune PRIVATE ${GLOK_CPP} ${LLAMA_SRC}/common ${LLAMA_SRC}/include ${LLAMA_SRC}/ggml/include)
+target_link_libraries(tune PRIVATE llama llama-common)

@@ -1,0 +1,56 @@
+name: Tune replies
+
+# reply style comparison on the real models (runs only for the tune branch)
+on:
+  push:
+    branches: [tune]
+
+permissions:
+  contents: write
+
+jobs:
+  tune:
+    name: Tune (${{ matrix.label }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: ex4-1.2b
+            file: Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/Huihui-EXAONE-4.0-1.2B-abliterated-GGUF/resolve/main/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
+          - label: ex35-2.4b
+            file: EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/EXAONE-3.5-2.4B-Instruct-abliterated-GGUF/resolve/main/EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf
+          - label: kanana-2.1b
+            file: kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/kanana-nano-2.1b-instruct-abliterated-GGUF/resolve/main/kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Cache model
+        uses: actions/cache@v4
+        with:
+          path: model
+          key: model-${{ matrix.file }}
+      - name: Download model
+        run: |
+          mkdir -p model
+          [ -s "model/${{ matrix.file }}" ] || curl -fL --retry 3 -o "model/${{ matrix.file }}" "${{ matrix.url }}"
+          ls -l model
+      - name: Build
+        run: |
+          sudo apt-get update -q > /dev/null && sudo apt-get install -y -q ninja-build > /dev/null
+          ci/run-logged.sh tune-configure cmake -S tests/host -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ci/run-logged.sh tune-build cmake --build build-host --target tune -j 4
+      - name: Run
+        run: |
+          mkdir -p ci-logs
+          ./build-host/tune "model/${{ matrix.file }}" ${{ matrix.label }} > ci-logs/tune-${{ matrix.label }}.txt 2> ci-logs/tune-${{ matrix.label }}.err || echo "::error::tune exited with $?"
+          grep '^S' ci-logs/tune-${{ matrix.label }}.txt || true
+      - name: Push results
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ci/push-logs.sh logs-tune-${{ matrix.label }}
