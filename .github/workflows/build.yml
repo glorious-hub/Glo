@@ -21,7 +21,7 @@ jobs:
     name: Engine test (real model)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
       - name: Cache model
@@ -36,18 +36,25 @@ jobs:
           ls -l model
       - name: Build
         run: |
-          sudo apt-get install -y ninja-build > /dev/null
-          cmake -S tests/host -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-host --target engine_test -j 4
+          sudo apt-get update -q > /dev/null && sudo apt-get install -y -q ninja-build > /dev/null
+          ci/run-logged.sh engine-configure cmake -S tests/host -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ci/run-logged.sh engine-build cmake --build build-host --target engine_test -j 4
       - name: Run
         run: |
-          set -o pipefail
-          ./build-host/engine_test "model/$MODEL_FILE" --expect-korean 2>&1 | tee engine-test.log | grep -E '^(ok |FAIL|  ->|  text|SPEED|ENGINE TEST|\[glok\]|describe|perf_cores)'
+          rc=0
+          ci/run-logged.sh engine-test ./build-host/engine_test "model/$MODEL_FILE" --expect-korean || rc=$?
+          grep -E '^(ok |FAIL|  ->|  text|SPEED|ENGINE TEST|\[glok\]|describe|perf_cores)' ci-logs/engine-test.log || true
+          exit $rc
+      - name: Push logs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ci/push-logs.sh logs-engine
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: engine-test-log
-          path: engine-test.log
+          path: ci-logs/engine-test.log
 
   apk:
     name: APK (${{ matrix.name }})
@@ -63,10 +70,10 @@ jobs:
             abi: x86_64
             task: assembleDebug
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -92,6 +99,7 @@ jobs:
           GLOK_KEY_ALIAS: ${{ secrets.GLOK_KEY_ALIAS }}
           GLOK_KEY_PASSWORD: ${{ secrets.GLOK_KEY_PASSWORD }}
         run: >
+          ci/run-logged.sh gradle-${{ matrix.name }}
           ./gradlew --no-daemon --stacktrace ${{ matrix.task }}
           -PglokAbis=${{ matrix.abi }}
           -PglokVersionCode=${{ github.run_number }}
@@ -104,6 +112,13 @@ jobs:
           cp "$f" "out/Glok-1.0.${{ github.run_number }}-${{ matrix.name }}.apk"
           ls -l out
           unzip -l out/*.apk | grep -E 'lib/|assets/' || true
+      - name: Push logs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          find app/build -name 'build_output.txt' -o -name 'configure_output.txt' -o -name 'cmake_server_log.txt' 2>/dev/null | head -20 | while read f; do mkdir -p "ci-logs/cxx/$(dirname "$f")"; cp "$f" "ci-logs/cxx/$f"; done
+          ci/push-logs.sh logs-${{ matrix.name }}
       - uses: actions/upload-artifact@v4
         with:
           name: apk-${{ matrix.name }}
@@ -114,7 +129,7 @@ jobs:
     needs: apk
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           name: apk-emulator-test
@@ -145,6 +160,13 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           disable-animations: true
           script: bash ci/emulator-test.sh
+      - name: Push results
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ci-logs && cp -r ci-out/. ci-logs/ 2>/dev/null || true
+          ci/push-logs.sh logs-emulator
       - uses: actions/upload-artifact@v4
         if: always()
         with:
