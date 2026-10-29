@@ -1,0 +1,58 @@
+name: Learn check
+
+# the learning on the real web and a real model: characters looked up, summed up by the model, and replies in character
+on:
+  push:
+    branches: [tune]
+    paths: ['tests/host/blocks/**', 'tests/host/learn-*.mjs', 'tests/host/runchat.cpp', '.github/workflows/learn.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  learn:
+    name: Learn (${{ matrix.label }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: gemma4-e2b
+            file: Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/Huihui-gemma-4-E2B-it-abliterated-v2-GGUF/resolve/main/Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf
+          - label: kanana-2.1b
+            file: kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
+            url: https://huggingface.co/mradermacher/kanana-nano-2.1b-instruct-abliterated-GGUF/resolve/main/kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Cache model
+        uses: actions/cache@v4
+        with:
+          path: model
+          key: model-${{ matrix.file }}
+      - name: Download model
+        run: |
+          mkdir -p model
+          [ -s "model/${{ matrix.file }}" ] || curl -fL --retry 3 -o "model/${{ matrix.file }}" "${{ matrix.url }}"
+      - name: Build
+        run: |
+          sudo apt-get update -q > /dev/null && sudo apt-get install -y -q ninja-build > /dev/null
+          ci/run-logged.sh learn-configure cmake -S tests/host -B build-host -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ci/run-logged.sh learn-build cmake --build build-host --target runchat -j 4
+      - name: Learn
+        run: |
+          node tests/host/learn-stage1.mjs ci-logs
+          ./build-host/runchat "model/${{ matrix.file }}" ci-logs/req-distill.json ci-logs/out-distill.json 2> ci-logs/distill.err
+          node tests/host/learn-stage2.mjs ci-logs
+          ./build-host/runchat "model/${{ matrix.file }}" ci-logs/req-chat.json ci-logs/out-chat.json 2> ci-logs/chat.err
+          node tests/host/learn-report.mjs ci-logs ${{ matrix.label }}
+      - name: Push results
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ci/push-logs.sh logs-learn-${{ matrix.label }}

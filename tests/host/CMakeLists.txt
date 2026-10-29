@@ -19,3 +19,8 @@ target_link_libraries(engine_test PRIVATE llama llama-common)
 add_executable(tune tune.cpp ${GLOK_CPP}/glok_engine.cpp)
 target_include_directories(tune PRIVATE ${GLOK_CPP} ${LLAMA_SRC}/common ${LLAMA_SRC}/include ${LLAMA_SRC}/ggml/include)
 target_link_libraries(tune PRIVATE llama llama-common)
+
+# chat requests from a JSON file on a real model (learning checks)
+add_executable(runchat runchat.cpp ${GLOK_CPP}/glok_engine.cpp)
+target_include_directories(runchat PRIVATE ${GLOK_CPP} ${LLAMA_SRC}/common ${LLAMA_SRC}/include ${LLAMA_SRC}/ggml/include)
+target_link_libraries(runchat PRIVATE llama llama-common)
