@@ -144,6 +144,7 @@ final class JsBridge implements LlmEngine.Sink {
             o.put("battery", batteryOk(app));
             o.put("notifBlocked", a != null && a.notifBlocked());
             o.put("ready", notifOk(app) && batteryOk(app));
+            o.put("keep", Keeper.keepingModel() && GlokService.isRunning());
             return o.toString();
         } catch (Exception e) {
             return "{}";

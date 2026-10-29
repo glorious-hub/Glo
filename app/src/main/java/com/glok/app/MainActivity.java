@@ -46,7 +46,8 @@ public final class MainActivity extends Activity {
 
     static volatile MainActivity current;
 
-    // the page outlives this screen while it still has work, so an answer keeps going after the app is swiped away
+    // the page outlives this screen while the model is kept ready or there is work, so the app comes back exactly as it
+    // was (an answer keeps going after the app is swiped away, and nothing is loaded again)
     private static GlokWebView keptWeb;
     private static MutableContextWrapper keptCtx;
     private static JsBridge bridge;
@@ -280,7 +281,7 @@ public final class MainActivity extends Activity {
         }
         if (web != null) {
             root.removeView(web);
-            if (Keeper.busy()) {
+            if (Keeper.busy() || Keeper.keepingModel()) {
                 webCtx.setBaseContext(getApplicationContext());
                 keptWeb = web;
                 keptCtx = webCtx;

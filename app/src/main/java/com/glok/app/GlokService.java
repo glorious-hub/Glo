@@ -8,7 +8,10 @@ import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 
-/** Foreground service that runs only while Glok has work (an answer, a picture, a model download). */
+/**
+ * Foreground service that keeps Glok running in the background: while a model is loaded (so it stays ready and is
+ * not loaded again) and while there is work (an answer, a picture, a model download).
+ */
 public final class GlokService extends Service {
     private static final String TAG = "GlokService";
     private static volatile GlokService inst;
@@ -38,10 +41,15 @@ public final class GlokService extends Service {
         if (inst != null) Notifier.updateWork(c, Keeper.label(), Keeper.pct());
     }
 
+    static boolean isRunning() {
+        return inst != null;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
         inst = this;
+        Keeper.serviceUp();
     }
 
     @Override
@@ -56,21 +64,29 @@ public final class GlokService extends Service {
         } catch (Exception e) {
             Log.w(TAG, "startForeground", e);
         }
-        if (!Keeper.busy()) {
+        if (intent == null) {
+            // Android closed Glok for memory and has now brought the service back: load the model again right away,
+            // so it is ready before the app is even opened
+            Log.i(TAG, "restarted by Android, restoring the model");
+            LlmEngine.get(this).restoreLast();
+        }
+        if (!Keeper.needed()) {
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
+            return START_NOT_STICKY;
         }
-        return START_NOT_STICKY;
+        return START_STICKY;
     }
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
-        // swiping the app away keeps the running answer going; the service ends with the work
+        // swiping the app away keeps the model and any running answer; the service ends with them
     }
 
     @Override
     public void onDestroy() {
         inst = null;
+        Keeper.serviceGone();
         super.onDestroy();
     }
 

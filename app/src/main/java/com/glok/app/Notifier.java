@@ -29,7 +29,7 @@ final class Notifier {
         chat.setVibrationPattern(new long[] {0, 120, 60, 120});
         chat.setShowBadge(true);
         NotificationChannel work = new NotificationChannel(CH_WORK, "백그라운드 작업", NotificationManager.IMPORTANCE_LOW);
-        work.setDescription("화면이 꺼져 있어도 답변을 이어서 써요");
+        work.setDescription("모델을 상시 준비해 두고, 화면이 꺼져 있어도 답변을 이어서 써요");
         work.setShowBadge(false);
         work.enableVibration(false);
         work.setSound(null, null);

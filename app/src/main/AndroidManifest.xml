@@ -39,7 +39,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Finishes on-device AI chat replies, pictures and model downloads the user started while the screen is off or another app is open" />
+                android:value="Keeps the on-device AI model the user loaded ready in memory, and finishes chat replies, pictures and model downloads the user started while the screen is off or another app is open" />
         </service>
     </application>
 </manifest>

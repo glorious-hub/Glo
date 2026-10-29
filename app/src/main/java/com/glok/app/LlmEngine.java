@@ -38,6 +38,10 @@ final class LlmEngine {
         t.setPriority(Thread.MAX_PRIORITY);
         return t;
     });
+    private static final String K_FILE = "model_file";
+    private static final String K_CTX = "model_ctx";
+
+    private final Context app;
     private final long h;
     private final int threads;
     private final AtomicInteger seq = new AtomicInteger();
@@ -51,11 +55,36 @@ final class LlmEngine {
     private volatile int ctx = 0;
 
     private LlmEngine(Context c) {
+        app = c;
         System.loadLibrary("glok");
         NativeLlm.nInit(c.getApplicationInfo().nativeLibraryDir);
         h = NativeLlm.nCreate();
         threads = NativeLlm.nPerfCores();
         Log.i(TAG, "engine ready, threads=" + threads);
+    }
+
+    /** the model in memory is written down, so Android can bring it back if it ever closes the app */
+    private void remember(String file, int nCtx) {
+        Keeper.prefs(app).edit().putString(K_FILE, file).putInt(K_CTX, nCtx).apply();
+    }
+
+    private void forget() {
+        Keeper.prefs(app).edit().remove(K_FILE).remove(K_CTX).apply();
+    }
+
+    /** loads the model that was in memory when Android closed the app (called when Android restarts the service) */
+    void restoreLast() {
+        String f = Keeper.prefs(app).getString(K_FILE, "");
+        int c = Keeper.prefs(app).getInt(K_CTX, 0);
+        if (f.isEmpty() || c <= 0 || !Keeper.enabled()) return;
+        File file = ModelStore.file(app, f);
+        if (!file.exists()) {
+            forget();
+            return;
+        }
+        if (f.equals(loadedFile) && c == ctx) return;
+        Log.i(TAG, "restoring " + f);
+        load(file, c);
     }
 
     void setSink(Sink s) {
@@ -84,9 +113,17 @@ final class LlmEngine {
         Keeper.hold("llm:" + id, "모델 불러오는 중");
         exec.execute(() -> {
             try {
+                if (file.getName().equals(loadedFile) && nCtx == ctx) {
+                    // already in memory (the page started again, or Android brought the app back): use it as it is
+                    Log.i(TAG, "model already loaded: " + loadedFile);
+                    emit(ev("load", id).put0("done", true).put0("ok", true).put0("kept", true).put0("info", new JSONObject(info)));
+                    return;
+                }
                 NativeLlm.nUnload(h);
                 loadedFile = "";
                 info = "{}";
+                ctx = 0;
+                Keeper.setReady(false);
                 final long[] last = {0};
                 NativeLlm.Listener l = new NativeLlm.Listener() {
                     @Override
@@ -111,8 +148,11 @@ final class LlmEngine {
                     loadedFile = file.getName();
                     ctx = nCtx;
                     info = new String(NativeLlm.nDescribe(h), StandardCharsets.UTF_8);
+                    remember(loadedFile, nCtx);
+                    Keeper.setReady(true);
                     emit(ev("load", id).put0("done", true).put0("ok", true).put0("info", new JSONObject(info)));
                 } else {
+                    forget();
                     emit(ev("load", id).put0("done", true).put0("ok", false).put0("error", err));
                 }
             } catch (Throwable t) {
@@ -131,6 +171,9 @@ final class LlmEngine {
             NativeLlm.nUnload(h);
             loadedFile = "";
             info = "{}";
+            ctx = 0;
+            forget();
+            Keeper.setReady(false);
         });
     }
 

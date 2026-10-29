@@ -1,6 +1,7 @@
 package com.glok.app;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
@@ -12,8 +13,11 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Keeps the app running while it has work: a foreground service (so Android doesn't stop the app) and a
- * partial wake lock (so the CPU keeps going with the screen off). Both end a few seconds after the last job.
+ * Keeps Glok alive in the background.
+ * - While a model is loaded (and "백그라운드 연결 유지" is on) a foreground service keeps the app, and with it the
+ *   model in memory, from being closed by Android: the model is loaded once and stays ready.
+ * - While there is work (an answer, a picture, a download) a partial wake lock also keeps the CPU going with the
+ *   screen off. It ends a few seconds after the last job; the service stays as long as the model is loaded.
  */
 final class Keeper {
     private Keeper() {}
@@ -21,21 +25,38 @@ final class Keeper {
     private static final String TAG = "GlokKeeper";
     private static final long LINGER_MS = 3000;
     private static final long WAKE_MAX_MS = 6L * 60 * 60 * 1000;
+    static final String PREFS = "glok";
+    private static final String K_ENABLED = "keep_alive";
 
     private static final Handler main = new Handler(Looper.getMainLooper());
     private static final LinkedHashMap<String, String> holds = new LinkedHashMap<>();
-    private static boolean enabled = true;
-    private static boolean running = false;
+    private static boolean enabled = true; // the page's "백그라운드 연결 유지" switch
+    private static boolean ready = false;  // a model is in memory
+    private static boolean running = false; // the foreground service was started
     private static int pct = -1;
     private static PowerManager.WakeLock wake;
 
-    private static final Runnable stopper = () -> {
+    static SharedPreferences prefs(Context c) {
+        return c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    static synchronized void init(Context c) {
+        enabled = prefs(c).getBoolean(K_ENABLED, true);
+    }
+
+    /** after the last job: let go of the wake lock, and of the service too unless the model is kept ready */
+    private static final Runnable settle = () -> {
         synchronized (Keeper.class) {
             if (!holds.isEmpty() && enabled) return;
-            running = false;
             pct = -1;
             releaseWake();
-            GlokService.stop(GlokApp.app);
+            if (enabled && ready) {
+                if (running) GlokService.refresh(GlokApp.app);
+                else running = GlokService.start(GlokApp.app);
+            } else {
+                running = false;
+                GlokService.stop(GlokApp.app);
+            }
         }
     };
 
@@ -63,11 +84,45 @@ final class Keeper {
     static synchronized void setEnabled(boolean on) {
         if (enabled == on) return;
         enabled = on;
+        try {
+            prefs(GlokApp.app).edit().putBoolean(K_ENABLED, on).apply();
+        } catch (Exception e) {
+            Log.w(TAG, "prefs", e);
+        }
+        update();
+    }
+
+    static synchronized boolean enabled() {
+        return enabled;
+    }
+
+    /** the engine reports whether a model is in memory */
+    static synchronized void setReady(boolean on) {
+        if (ready == on) return;
+        ready = on;
         update();
     }
 
     static synchronized boolean busy() {
         return !holds.isEmpty();
+    }
+
+    /** the model stays in memory in the background (the service runs for it) */
+    static synchronized boolean keepingModel() {
+        return enabled && ready;
+    }
+
+    /** whether the service still has a reason to run */
+    static synchronized boolean needed() {
+        return enabled && (ready || !holds.isEmpty());
+    }
+
+    static synchronized void serviceUp() {
+        running = true;
+    }
+
+    static synchronized void serviceGone() {
+        running = false;
     }
 
     static synchronized void progress(int p) {
@@ -76,6 +131,7 @@ final class Keeper {
     }
 
     static synchronized String label() {
+        if (holds.isEmpty()) return ready ? "모델 상시 준비 중" : "작업 중";
         String last = "작업 중";
         for (Map.Entry<String, String> e : holds.entrySet()) last = e.getValue();
         return last;
@@ -87,17 +143,20 @@ final class Keeper {
     }
 
     private static void update() {
-        main.removeCallbacks(stopper);
+        main.removeCallbacks(settle);
         Context c = GlokApp.app;
-        if (!holds.isEmpty() && enabled) {
+        boolean work = !holds.isEmpty() && enabled;
+        boolean keep = enabled && ready;
+        if (work) {
             acquireWake(c);
-            if (!running) {
-                running = GlokService.start(c);
-            } else {
-                GlokService.refresh(c);
-            }
+            if (!running) running = GlokService.start(c);
+            else GlokService.refresh(c);
+        } else if (keep) {
+            if (!running) running = GlokService.start(c);
+            // the wake lock and the work text go after a short pause, in case the next job follows right away
+            main.postDelayed(settle, LINGER_MS);
         } else if (running || wake != null) {
-            main.postDelayed(stopper, LINGER_MS);
+            main.postDelayed(settle, LINGER_MS);
         }
     }
 

@@ -6,6 +6,7 @@
   const replies = () => document.querySelectorAll('.msg.assistant').length;
   const lastReply = () => { const b = [...document.querySelectorAll('.msg.assistant .body')]; return b.length ? b[b.length - 1].textContent.trim() : ''; };
   try {
+    window.__glokMark = 'p' + Date.now(); // stays as long as this page lives (checked after the screen comes back)
     log('start', GlokNative.bgState(), GlokNative.appInfo());
     log('popup', String(!$('#bgModalScrim').hidden));
     let t0 = Date.now();
