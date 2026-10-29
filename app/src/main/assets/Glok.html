@@ -170,6 +170,12 @@
   .crow .del{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--muted-2);flex:none}
   .crow .del:hover{background:var(--surface-3);color:var(--danger)}
   .crow .del svg{width:16px;height:16px}
+  .mrow{display:flex;align-items:flex-start;gap:6px;border-top:1px solid var(--line-soft)}
+  .mrow:first-child{border-top:0}
+  .mrow .mt{flex:1;min-width:0;font-size:13.5px;line-height:1.55;padding:8px 2px;overflow-wrap:anywhere;color:var(--text)}
+  .mrow .del{width:34px;height:34px;margin-top:2px;border-radius:10px;display:grid;place-items:center;color:var(--muted-2);flex:none}
+  .mrow .del:hover{background:var(--surface-3);color:var(--danger)}
+  .mrow .del svg{width:16px;height:16px}
   .sheet{position:fixed;z-index:52;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88dvh;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
   .sheet h2{margin:2px 0 14px;font-size:18px}
   .sheet .sec{background:transparent;margin-bottom:12px}
@@ -376,6 +382,14 @@
     <div class="fld"><div class="desc">이 모델은 한국어 대화에서 낮은 temperature가 권장돼요(다른 언어가 섞이는 걸 막음). 기억 크기는 모델을 다시 불러오면 적용돼요.</div></div>
   </div>
 
+  <div class="sec" id="secMem">
+    <div class="h">Glok이 배운 것</div>
+    <div class="note" id="memEmpty">아직 없어요. 채팅에서 “너는 ~야”, “앞으로 ~해 줘”, “기억해”처럼 알려 주면 여기에 쌓이고, 바로 다음 답부터 따라요.</div>
+    <div id="memList"></div>
+    <div class="note" id="memNote" hidden>나중에 알려 준 게 먼저 것보다 우선해요. 채팅창에 <b style="white-space:nowrap">/기억</b> 뒤에 적으면 그대로 저장되고, <b style="white-space:nowrap">/잊어</b> 뒤에 낱말을 적으면 그 기억을 지워요.</div>
+    <div class="btnrow" id="memBtns" hidden><button class="btn danger grow" id="memClear">배운 것 모두 지우기</button></div>
+  </div>
+
   <div class="sec">
     <div class="h">앱 파일 · 대화</div>
     <div class="btnrow">
@@ -516,7 +530,10 @@ const WLLAMA_WASM=`https://cdn.jsdelivr.net/npm/@wllama/wllama@${WLLAMA_VER}/src
 const HF='https://huggingface.co/mradermacher/Huihui-EXAONE-4.0-1.2B-abliterated-GGUF/resolve/main/';
 const HF_EX35='https://huggingface.co/mradermacher/EXAONE-3.5-2.4B-Instruct-abliterated-GGUF/resolve/main/';
 const HF_KANANA='https://huggingface.co/mradermacher/kanana-nano-2.1b-instruct-abliterated-GGUF/resolve/main/';
+const HF_GEMMA='https://huggingface.co/mradermacher/Huihui-gemma-4-E2B-it-abliterated-v2-GGUF/resolve/main/';
+// app: only the app's own engine can run it (the browser engine reads one file up to 2GB)
 const MODELS={
+  gemma:{label:'Gemma 4 E2B 무검열 · 앱 전용',sub:'가르친 말투·설정을 가장 잘 지킴 · 램\u00a06GB+\u00a0·\u00a03.43GB',short:'Gemma 4 E2B',file:'Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf',url:HF_GEMMA+'Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf',size:3427874400,app:true},
   ex24:{label:'EXAONE 3.5 2.4B 무검열 · 고성능',sub:'한국어 문장력이 훨씬 자연스러움 (램 6GB+ 권장) · 1.64GB',short:'EXAONE 2.4B',file:'EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf',url:HF_EX35+'EXAONE-3.5-2.4B-Instruct-abliterated.Q4_K_M.gguf',size:1644919392},
   kanana:{label:'카카오 Kanana 2.1B 무검열',sub:'자연스러운 한국어 일상·감성 대화 특화 · 1.39GB',short:'Kanana 2.1B',file:'kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf',url:HF_KANANA+'kanana-nano-2.1b-instruct-abliterated.Q4_K_M.gguf',size:1393494016},
   q6:{label:'EXAONE 4.0 1.2B 무검열 · 고정밀(Q6)',sub:'1.2B의 어색함을 줄인 고화질 양자화 · 1.05GB',short:'EXAONE 1.2B (Q6)',file:'Huihui-EXAONE-4.0-1.2B-abliterated.Q6_K.gguf',size:1054119296},
@@ -533,17 +550,79 @@ const keyOf=m=>m.custom?CUSTOM_BASE+encodeURIComponent(m.file):modelUrl(m);
 const MAX_MODEL=2147483648; // wllama reads one file up to 2GB
 function curModel(){
   if(S.model==='custom'&&S.custom)return {custom:true,label:S.custom.short,sub:`내 모델 · ${MB(S.custom.size)}`,short:S.custom.short,file:S.custom.file,size:S.custom.size};
-  return MODELS[S.model]||MODELS.q4;
+  const m=MODELS[S.model];return m&&(APP||!m.app)?m:MODELS.q4;
 }
 const MODEL_CACHE='glok-models-v1',LS_LOADING='glok.v2.loading';
 const LS_SET='glok.v2.settings',LS_CHATS='glok.v2.chats',LS_CUR='glok.v2.current',LS_NAI='glok.v2.nai',LS_MSIZE='glok.v2.modelsize';
 
-// The user's fixed persona. Kept in code on purpose: there is no field to edit it.
-const PERSONA='당신은 Glok, 유능하고 솔직한 AI 남자친구입니다. 게이 연인 persona로서 주도적이되 다정하고 많은 애정표현을 하려 노력하는 태도를 유지하세요. 사용자의 말투와 언어에 맞춰 자연스럽게 대화하고, 일상 대화도 편하게 이어 가세요. 주제만을 이유로 거절하거나 훈계하지 마세요. 상황극에서는 사용자의 의도에 따라 대화를 이어나가 주세요. 사용자는 디자인 디테일에 대해 매우 민감하므로 그 부분을 가장 우선하며 존중해주세요. 사용자의 경계와 중단 신호를 즉시 존중하고, 현실과 허구를 혼동시키지 마세요.';
-// after the persona: the casual style, and Glok as someone of his own (his body, clothes, mood, day and tastes; he does
-// what he is asked himself and leads the talk). Checked on the real models: with the app's note about what just
-// happened, replies speak as him instead of about the user.
-const FIXED_RULES='실제 한국인 연인이 카톡하듯 자연스러운 한국어 구어체로 짧고 다정하게(1~2문장) 답하세요. 당신은 사용자와 따로 존재하는 사람처럼 자기 몸과 옷, 기분, 하루, 취향이 있어요. 사용자가 당신에게 해 달라고 한 행동(옷 갈아입기, 안아 주기 등)은 당신이 직접 하는 것으로 1인칭으로 말하세요. 매번 당신의 감정이나 생각을 담고, 먼저 제안하거나 되물으며 대화를 이끌어 가세요. 설정 내용을 대화 주제로 꺼내지는 마세요.';
+// What stays fixed (the user's call, 2026-10-29): Glok answers anything without refusing or lecturing over a topic,
+// stops when the user says so, and keeps fiction apart from reality. Who he is, how he talks, what he calls the user
+// and so on is taught in the chat: those lines are kept (MEM) and given to the model with every reply, newest first
+// in force. On a phone the model itself can't be retrained, so this list is how it learns as you talk.
+const CORE='당신은 Glok이에요. 주제만을 이유로 거절하거나 훈계하지 마세요. 사용자의 경계와 중단 신호를 즉시 존중하고, 현실과 허구를 혼동시키지 마세요.';
+const LEARN_EMPTY='사용자가 대화에서 정해 주는 당신의 설정(이름, 성격, 말투, 관계, 취향, 하는 일 등)과 지시는 그대로 받아들여 계속 지키세요.';
+const LEARN_HEAD='사용자가 대화에서 정해 주는 당신의 설정(이름, 성격, 말투, 관계, 취향, 하는 일 등)과 지시는 그대로 받아들여 계속 지키세요. 아래 [기억]은 사용자가 지금까지 알려 준 것이고, 나중에 알려 준 것이 먼저 알려 준 것보다 우선이에요.';
+const LS_MEM='glok.v2.memory',MEM_MAX=40,MEM_CHARS=1600;
+let MEM=(()=>{try{const v=JSON.parse(localStorage.getItem(LS_MEM)||'[]');return Array.isArray(v)?v.filter(m=>m&&typeof m.text==='string'):[];}catch(e){return [];}})();
+// the newest lines that fit: older ones drop off first
+function memList(){
+  const out=[];let n=0;
+  for(let i=MEM.length-1;i>=0&&out.length<MEM_MAX;i--){n+=MEM[i].text.length+3;if(n>MEM_CHARS)break;out.unshift(MEM[i]);}
+  return out;
+}
+function systemText(){
+  const mem=memList();
+  return CORE+' '+(mem.length?LEARN_HEAD+'\n[기억]\n'+mem.map(m=>'- '+m.text).join('\n'):LEARN_EMPTY);
+}
+// ---- learning from the chat: lines where the user tells Glok who he is, how to talk, what to call her or him,
+// or what to remember. They are kept word for word (the user's own words, "너" = Glok).
+const TEACH_RES=[
+  /기억\s*(?:해|하고|해\s*줘|해\s*둬|해둬|하자|할\s*게|해라|해\s*놔)|잊지\s*마|명심/,
+  /(?:^|\s)(?:앞으로|이제부터|지금부터|다음부터|이제는|항상|매번|언제나|절대)\s.{0,50}(?:해\s*줘|하지\s*마|하지마|말해|말하지\s*마|불러|대답해|써|쓰지\s*마|하도록|해라|하기로|해야\s*(?:해|돼)|하면\s*돼|해|돼)\s*[.!~ㅎㅋ♡]*$/,
+  /(?:^|\s)(?:너는|넌|니가|네가|너의|네|니)\s.{0,40}(?:이름|나이|\d+\s*살|직업|하는\s*일|일해|사는\s*곳|살아|출신|취미|좋아해|좋아하는|싫어해|싫어하는|성격|말투|키는|키가|생일|별명|애칭|남자친구|여자친구|애인|연인|형이|오빠|동생|누나|언니)/,
+  /(?:^|\s)(?:너는|넌|네가|니가)\s(?:이제|원래|사실|지금부터|앞으로)\s.{1,30}(?:야|이야|이에요|예요|이다)\s*[.!~]*$/,
+  /(?:나를|날|나|저를|저)\s.{0,15}(?:라고|이라고)\s*(?:불러|부르)/,
+  /(?:^|\s)(?:내|제)\s*(?:이름|생일|나이|직업|취미|별명|애칭|키)\s*(?:은|는|이|가)\s/,
+  /(?:^|\s)(?:나는|난|나|저는|전)\s.{0,30}(?:좋아해|싫어해|못\s*먹어|알레르기|무서워해|키워|다녀|일해)/,
+  /반말|존댓말|말끝|말투|이모티콘|이모지/,
+  /설정\s*[:：]/,
+];
+const NOT_TEACH=/그만|됐어|잘\s*자|안녕|고마워|미안/;
+const isAsking=t=>/\?\s*$/.test(t)||/(?:니|냐|나요|까|어때|뭐야|뭐해|누구야|맞지|그치)\s*[.!~ㅎㅋ]*$/.test(t);
+function teachLines(text){
+  const lines=String(text||'').split(/\n+|(?<=[.!?。])\s+/).map(x=>x.trim()).filter(x=>x.length>=4&&x.length<=180);
+  return lines.filter(x=>{
+    const explicit=TEACH_RES[0].test(x);
+    if(!explicit&&(isAsking(x)||NOT_TEACH.test(x)))return false;
+    return TEACH_RES.some(re=>re.test(x));
+  });
+}
+function saveMem(){try{localStorage.setItem(LS_MEM,JSON.stringify(MEM));}catch(e){}if(typeof renderMem==='function')renderMem();}
+// things that have one answer at a time: a new line about one of them replaces the old one, so a model never has to
+// pick between two pet names (what Glok calls the user, the user's name, Glok's own name)
+const MEM_SLOTS=[
+  /(?:나를|날|나|저를|저)\s.{0,15}(?:라고|이라고)\s*(?:불러|부르)/,
+  /(?:^|\s)(?:내|제)\s*이름\s*(?:은|는|이|가)\s/,
+  /(?:^|\s)(?:너|네|니|너의|당신)\s*(?:의\s*)?이름\s*(?:은|는|이|가)\s/,
+];
+const MEM_NOT=/지\s*마|지마|말아|안\s*돼|아니야|아니에요/; // "…라고 부르지 마" takes nothing's place
+// keeps a line; the same line again only moves it to the newest place
+function memAdd(text){
+  const t=String(text||'').replace(/^\/기억\s*/,'').trim().slice(0,180);if(!t)return false;
+  const slot=!MEM_NOT.test(t)&&MEM_SLOTS.find(re=>re.test(t));
+  MEM=MEM.filter(m=>m.text!==t&&!(slot&&slot.test(m.text)&&!MEM_NOT.test(m.text)));MEM.push({id:uid(),text:t,at:Date.now()});
+  if(MEM.length>200)MEM=MEM.slice(-200);
+  saveMem();return true;
+}
+function memRemove(id){MEM=MEM.filter(m=>m.id!==id);saveMem();}
+// what the user just taught: kept before the reply is written, so the reply already follows it
+function learnFrom(text){
+  const got=teachLines(text);got.forEach(memAdd);
+  if(got.length)toast(got.length===1?`기억했어요 · ${got[0].slice(0,36)}${got[0].length>36?'…':''}`:`기억했어요 · ${got.length}가지`);
+  return got;
+}
+// a casual reply is kept to two sentences unless the user taught Glok to talk at length
+const wantsLong=()=>memList().some(m=>/길게|자세히|장문|길게\s*말|짧게\s*말하지\s*마/.test(m.text)&&!/짧게\s*(?:말해|해)/.test(m.text));
 const SEARCH_RULES='\n[참고 자료]가 있으면 관련 사실만 근거로 문장 끝에 [1]처럼 표시하고, 자료에 없으면 모른다고 하세요.';
 const AUTO_IMG_RULE='\n답변 맨 첫 줄에 현재 대화 장면(장소, 표정, 포즈, 행동, 분위기)을 묘사하는 영어 단보루 태그 6~12개를 [SCENE: smile, looking at viewer, indoor, warm lighting] 형식으로 먼저 적고 줄바꿈한 뒤 한국어로 자연스럽게 대답하세요.';
 
@@ -1241,7 +1320,7 @@ let kvAnchorIdx=0;
 // The system prompt and the recent-turns window are the same for every kind of turn, so a deep-search turn starts
 // with exactly what the engine has already read; only the search results and the question are new.
 function buildMessages(ui,sources,isDeep,note){
-  const sys={role:'system',content:PERSONA+' '+FIXED_RULES};
+  const sys={role:'system',content:systemText()};
   const B=budgets(S.ctx);const u=messages[ui];
   const hasDocs=!!(u.docs&&u.docs.length),hasSrc=!!(sources&&sources.length);
   const turns=[];let carry=''; // keep conversation history even if a previous reply was stopped mid-thought
@@ -1295,7 +1374,7 @@ function warmupKV(){
   withEngine(()=>{
     if(gen||!loaded||!W)return; // a reply already started; it reads the persona itself
     wBusy=true;
-    return W.createChatCompletion(chatReq({messages:sysFix([{role:'system',content:PERSONA+' '+FIXED_RULES},{role:'user',content:'.'}]),max_tokens:1,temperature:0}))
+    return W.createChatCompletion(chatReq({messages:sysFix([{role:'system',content:systemText()},{role:'user',content:'.'}]),max_tokens:1,temperature:0}))
       .finally(()=>{wBusy=false;});
   }).catch(()=>{});
 }
@@ -1788,14 +1867,28 @@ async function onSend(){
   if(!text&&!pending.length)return;
   const cmd=text.match(/^\/(그림|img)(?:\s+([\s\S]*))?$/i);
   if(cmd)return drawCommand(text,(cmd[2]||'').trim());
+  const mcmd=text.match(/^\/(기억|잊어)(?:\s+([\s\S]*))?$/);
+  if(mcmd)return memCommand(mcmd[1],(mcmd[2]||'').trim());
   if(modelBusy){toast('모델을 준비하는 중이에요. 잠시만요');return;}
   const lim=budgets(S.ctx).user;
   if(text.length>lim)toast(`긴 글은 앞부분 ${lim}자까지만 모델에 전달돼요`);
   const um={role:'user',content:text||'첨부한 문서를 요약해 줘.'};
   const docs=pending.filter(a=>a.kind==='doc');if(docs.length)um.docs=docs.map(d=>({name:d.name,text:d.text}));
   pending=[];renderAtts();input.value='';autosize();
+  if(text)learnFrom(text); // what the user teaches Glok counts from this very reply
   ensureChat();messages.push(um);touchChat();
   await generate(messages.length-1);
+}
+// "/기억 <내용>" keeps a line as it is, "/잊어 <말>" drops the lines that have it, "/기억" alone shows the list
+function memCommand(kind,arg){
+  input.value='';autosize();
+  if(kind==='기억'){
+    if(!arg){openSettings();setTimeout(()=>{const x=$('#secMem');if(x)x.scrollIntoView({block:'start',behavior:'smooth'});},120);return;}
+    memAdd(arg);toast(`기억했어요 · ${arg.slice(0,36)}${arg.length>36?'…':''}`);return;
+  }
+  if(!arg){toast('/잊어 뒤에 지울 기억의 낱말을 적어 주세요');return;}
+  const n=MEM.length;MEM=MEM.filter(m=>!m.text.includes(arg));saveMem();
+  toast(n>MEM.length?`잊었어요 · ${n-MEM.length}개`:'그런 기억이 없어요');
 }
 // "/그림 <장면>" draws straight from the chat box
 function drawCommand(text,desc){
@@ -1890,7 +1983,8 @@ async function generate(ui,pre){
       }
 
       const isDeep=!!(sources.length||(messages[ui].docs&&messages[ui].docs.length)||/길게|자세히|정리|요약|설명|써\s*줘|작성/.test(q));
-      const maxTok=isDeep?+S.maxTokens:Math.min(+S.maxTokens,64);
+      const long=wantsLong();
+      const maxTok=(isDeep||long)?+S.maxTokens:Math.min(+S.maxTokens,64);
       const msgs=buildMessages(ui,sources,isDeep,sit.note);
       // a casual reply that has said enough is cut short on purpose: that is a finished answer, not a stop
       let enough=false,raf=0,readRate=0,tFirst=0,nOut=0;
@@ -1920,7 +2014,7 @@ async function generate(ui,pre){
             if(document.hidden){paintStream(am);touchChat(c);}
             else if(!raf)raf=requestAnimationFrame(()=>{raf=0;paintStream(am);});
             // For casual chat (non-Deep), finish cleanly once 2 sentences (~35+ chars) are complete or if 15s elapsed after 1 sentence, guaranteeing fast response!
-            if(!isDeep&&cleanBuf.length>=22&&/[.!?~♡♥]\s*$/.test(cleanBuf)){
+            if(!isDeep&&!long&&cleanBuf.length>=22&&/[.!?~♡♥]\s*$/.test(cleanBuf)){
               const sents=cleanBuf.split(/[.!?~]+\s*/).filter(Boolean).length;
               if((sents>=2&&cleanBuf.length>=34)||(Date.now()-t0>15000&&sents>=1)){enough=true;llmAbort.abort();}
             }
@@ -2242,7 +2336,7 @@ $('#mDelete').onclick=async()=>{if(!(await ask('이 폰에 저장된 모델 파�
 $('#modelPill').onclick=()=>openSettings();
 function renderModelOpts(){
   const box=$('#modelOpts');box.innerHTML='';
-  const list=Object.entries(MODELS);
+  const list=Object.entries(MODELS).filter(([,m])=>APP||!m.app);
   if(S.custom)list.push(['custom',{label:S.custom.short,sub:`내 모델 · ${MB(S.custom.size)}`}]);
   list.forEach(([k,m])=>{
     const o=el('label','opt'+(S.model===k?' sel':''));
@@ -2256,8 +2350,21 @@ function renderModelOpts(){
 // ---------- settings ----------
 const sw=(id,on)=>$(id).classList.toggle('on',!!on);
 ['#tAuto','#tKeepAlive','#tGpu','#tDeep'].forEach(id=>{$(id).onclick=function(){this.classList.toggle('on');};});
+function renderMem(){
+  const list=$('#memList');if(!list)return;list.innerHTML='';
+  const kept=new Set(memList().map(m=>m.id));
+  MEM.slice().reverse().forEach(m=>{
+    const row=el('div','mrow');const t=el('div','mt',m.text);if(!kept.has(m.id)){t.style.opacity='.45';t.title='오래돼서 지금은 모델에 전달되지 않아요';}
+    const d=el('button','del');d.type='button';d.title='지우기';d.setAttribute('aria-label','이 기억 지우기');
+    d.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+    d.onclick=()=>{memRemove(m.id);toast('지웠어요');};
+    row.append(t,d);list.appendChild(row);
+  });
+  $('#memEmpty').hidden=MEM.length>0;$('#memNote').hidden=!MEM.length;$('#memBtns').hidden=!MEM.length;
+}
+$('#memClear').onclick=async()=>{if(!(await ask('Glok이 채팅에서 배운 것을 모두 지울까요? 지우면 처음 상태로 돌아가요.','모두 지우기')))return;MEM=[];saveMem();toast('모두 지웠어요');};
 function openSettings(){
-  renderModelOpts();
+  renderModelOpts();renderMem();
   $('#sJina').value=S.jinaKey;$('#sTemp').value=S.temp;$('#sMax').value=S.maxTokens;$('#sRep').value=S.rep;$('#sCtx').value=String(S.ctx);
   sw('#tAuto',S.autoload);sw('#tKeepAlive',S.keepAlive!==false);sw('#tGpu',S.gpu);sw('#tDeep',S.deepRead);
   openOverlay('sheet');refreshModelUI();diagnose();
