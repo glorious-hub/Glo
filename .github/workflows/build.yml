@@ -82,6 +82,12 @@ jobs:
         with:
           key: ndk-${{ matrix.abi }}
           max-size: 2G
+      - name: Android SDK packages
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "ndk;29.0.13113456" "cmake;3.31.6" "platforms;android-36" "build-tools;35.0.0" > /dev/null
+          ls "$ANDROID_HOME/ndk" "$ANDROID_HOME/cmake"
       - name: Signing key
         if: matrix.task == 'assembleRelease'
         env:
