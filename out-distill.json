@@ -1,0 +1,53 @@
+{
+ "load_ms": 1879.551755,
+ "vm_hwm_kb": 2627548,
+ "engine": {
+  "model": "gemma4 E2B Q4_K - Medium",
+  "size": 3412060300,
+  "params": 4647450147,
+  "ctx": 2560,
+  "threads": 4,
+  "threads_batch": 4,
+  "path": "model/Huihui-gemma-4-E2B-it-abliterated-v2.Q4_K_M.gguf",
+  "devices": "CPU",
+  "system": "CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | "
+ },
+ "replies": [
+  {
+   "name": "wrio:u3",
+   "seed": 11,
+   "text": "정체: 폰타인 수중 감옥인 '메로피드 요새'의 관리자이며 '공작'이라는 작위를 가진 인물이다.\n성격: 행정가로서의 위엄과 동시에 친절한 면모를 동시에 보여준다.\n말투: 공적인 이유가 아니라고 할 때 긴장하며 자세한 설명을 요구하고, 상대방에게 이름을 지어주는 것에 신경을 쓴다.",
+   "ok": true,
+   "error": "",
+   "n_prompt": 952,
+   "n_cache": 0,
+   "n_gen": 94,
+   "prompt_ms": 20978.729651,
+   "gen_ms": 6213.154819
+  },
+  {
+   "name": "kazuha:u4",
+   "seed": 11,
+   "text": "정체: 이나즈마에서 온 떠돌이 무사. 현재 리월의 「남십자」 함대에 머물고 있다.\n성격: 온화하고 소탈하지만 마음속에 수많은 과거를 숨기고 있다.\n말투: 부드럽고 여유로우며, 때로는 시적인 표현을 섞어 사용한다.",
+   "ok": true,
+   "error": "",
+   "n_prompt": 644,
+   "n_cache": 0,
+   "n_gen": 77,
+   "prompt_ms": 14420.885738,
+   "gen_ms": 5309.203525
+  },
+  {
+   "name": "levi:u7",
+   "seed": 11,
+   "text": "정체: 진격의 거인의 등장인물이며 조사병단의 서열 1위이다.\n성격: 현실주의와 후회 없는 선택을 중시하며, 남에게 마음을 열지 않는 스타일이다.\n말투: 말을 가리지 않아 거칠고, 때로는 욕설을 사용한다.",
+   "ok": true,
+   "error": "",
+   "n_prompt": 669,
+   "n_cache": 44,
+   "n_gen": 68,
+   "prompt_ms": 14314.327957,
+   "gen_ms": 4614.944587
+  }
+ ]
+}
