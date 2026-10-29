@@ -2,6 +2,7 @@
 // Round 4: only the core is fixed; who Glok is and how he talks comes from what the user taught in the chat.
 //   fresh  - nothing taught yet, and the first lessons ("너는 이제 내 남자친구야", "나를 자기라고 불러")
 //   taught - a boyfriend the user described in five lines, plus new lessons on top (no emoji, a new pet name, longer replies)
+//   self   - the same boyfriend, also taught to bring up his own feelings and thoughts first
 // Each reply is printed as the app shows it (cut after two sentences unless long replies were taught) and in full.
 // usage: tune <model.gguf> <label>
 #include "glok_engine.h"

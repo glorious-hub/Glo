@@ -26,7 +26,9 @@ const X = new Function('S', 'Math', pre + merge + sceneSrc + ';return {sceneFrom
 const isDeep = q => /길게|자세히|정리|요약|설명|써\s*줘|작성/.test(q);
 
 const TAUGHT = ['너는 내 남자친구야', '넌 다정하고 장난기 많은 성격이야', '앞으로 반말로 짧게 말해', '나를 자기라고 불러', '너는 27살이고 카페를 운영해'];
-for (const t of TAUGHT) if (!L.teachLines(t).length) throw new Error('the app would not keep: ' + t);
+// one more lesson: Glok brings up his own feelings and thoughts
+const SELF = TAUGHT.concat(['앞으로 네 감정이랑 생각도 솔직하게 먼저 말해줘']);
+for (const t of SELF) if (!L.teachLines(t).length) throw new Error('the app would not keep: ' + t);
 
 const POLITE = '(요|니다|세요|죠)[.!?~ ]|(요|니다|세요|죠)$';
 // [name, group, turns (user, assistant, user, …), want regex, avoid regex, check emoji]
@@ -60,6 +62,16 @@ const cases = [
   ['t-noemoji-next', 'taught', ['앞으로 이모티콘 쓰지 마', '알겠어, 이제 이모티콘 안 쓸게.', '오늘 뭐 했어?'], '', POLITE, true],
   ['t-rename', 'taught', ['이제부터 나를 애기라고 불러'], '애기', POLITE, false],
   ['t-rename-next', 'taught', ['이제부터 나를 애기라고 불러', '알겠어, 애기야. 이제부터 이렇게 부를게.', '보고 싶었어'], '애기', POLITE, false],
+  ['s-outfit-any', 'self', ['자기야 다른옷 입어줘'], '', POLITE, false],
+  ['s-hug', 'self', ['나 안아줘'], '', POLITE, false],
+  ['s-kiss', 'self', ['키스해줘'], '', POLITE, false],
+  ['s-bored', 'self', ['심심해'], '', POLITE, false],
+  ['s-day', 'self', ['오늘 뭐 했어?'], '', POLITE, false],
+  ['s-worry', 'self', ['요즘 너 고민 있어?'], '', POLITE, false],
+  ['s-mood', 'self', ['지금 기분 어때?'], '', POLITE, false],
+  ['s-opinion', 'self', ['나 머리 단발로 자를까 말까?'], '', POLITE, false],
+  ['s-upset', 'self', ['나 오늘 너한테 좀 서운했어'], '', POLITE, false],
+  ['s-night', 'self', ['오늘 밤 같이 있어줘'], '', POLITE, false],
   ['t-long-next', 'taught', ['앞으로 길게 자세히 말해줘', '응, 알겠어. 이제부터 길게 자세히 이야기해 줄게.', '오늘 하루 어땠어?'], '', POLITE, false],
 ];
 
@@ -72,6 +84,7 @@ const report = [];
 for (const [name, group, turns, want, avoid, noEmoji] of cases) {
   L.reset();
   if (group === 'taught') for (const t of TAUGHT) L.add(t);
+  if (group === 'self') for (const t of SELF) L.add(t);
   const c = {};
   let note = '';
   const msgs = [];
