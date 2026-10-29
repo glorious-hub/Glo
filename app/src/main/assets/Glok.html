@@ -1271,8 +1271,14 @@ function buildMessages(ui,sources,isDeep){
   if(hasDocs){let room=B.docs;content=u.docs.map(d=>{const t=d.text.slice(0,Math.max(0,room));room-=t.length;return `[첨부 문서: ${d.name}]\n${t}`;}).join('\n\n')+'\n\n'+content;}
   // search results are kept to about 900 characters: on a phone every extra line of reading costs seconds
   if(hasSrc)content=sourcesBlock(sources,Math.min(900,hasDocs?Math.round(B.src*0.7):B.src))+'\n\n'+SEARCH_RULES.trim()+'\n\n[질문]\n'+content;
-  return [sys,...hist,{role:'user',content}];
+  return sysFix([sys,...hist,{role:'user',content}]);
 }
+// wllama 3.8.1 renders EXAONE 4.0's chat template with llama.cpp's Jinja runtime, which loses the first system message
+// (output written before the template's {% continue %} is dropped), so the persona never reached the model. A blank
+// first turn takes that place and the persona is written exactly as the template intends. The app's own engine renders
+// the template correctly.
+function isEx4(){return !!loaded&&(/^EXAONE 1\.2B/.test(loaded.name)||/EXAONE[-_ ]?4/i.test(loaded.name));}
+function sysFix(msgs){return (!APP&&isEx4()&&msgs.length&&msgs[0].role==='system')?[{role:'system',content:''},...msgs]:msgs;}
 // Every request goes through the model's own chat template (EXAONE 4.0, EXAONE 3.5 and Kanana each have their own).
 // wllama 3.8.1 passes chat_template_kwargs to it: enable_thinking:false makes the EXAONE 4.0 template close its
 // <think> block, so the reply starts at the first token instead of after a hidden think pass.
@@ -1284,7 +1290,7 @@ function warmupKV(){
   withEngine(()=>{
     if(gen||!loaded||!W)return; // a reply already started; it reads the persona itself
     wBusy=true;
-    return W.createChatCompletion(chatReq({messages:[{role:'system',content:PERSONA+' '+FIXED_RULES},{role:'user',content:'.'}],max_tokens:1,temperature:0}))
+    return W.createChatCompletion(chatReq({messages:sysFix([{role:'system',content:PERSONA+' '+FIXED_RULES},{role:'user',content:'.'}]),max_tokens:1,temperature:0}))
       .finally(()=>{wBusy=false;});
   }).catch(()=>{});
 }
@@ -1396,7 +1402,7 @@ async function localTags(instruction,sig){
       if(sig&&sig.aborted)throw abortErr();
       if(!loaded||!W)return;
       wBusy=true;
-      return W.createChatCompletion(chatReq({messages:[{role:'system',content:TAG_SYS},{role:'user',content:instruction}],
+      return W.createChatCompletion(chatReq({messages:sysFix([{role:'system',content:TAG_SYS},{role:'user',content:instruction}]),
         stream:true,abortSignal:sig,max_tokens:80,temperature:0.3,top_p:0.9,
         onData:ch=>{const d=ch&&ch.choices&&ch.choices[0]&&ch.choices[0].delta&&ch.choices[0].delta.content;if(d)out+=d;}}))
         .finally(()=>{wBusy=false;});
