@@ -1,0 +1,30 @@
+name: Probe learning sources
+
+# what the app can read on the web to learn a character (runs only for the probe branch)
+on:
+  push:
+    branches: [probe]
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe
+        run: node ci/probe-learn.mjs
+      - name: Push results
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd ci-logs || exit 0
+          git init -q -b logs-probe
+          git add -A
+          git -c user.name="glok-ci" -c user.email="glok-ci@users.noreply.github.com" commit -q -m "probe ${GITHUB_RUN_NUMBER}"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" logs-probe
