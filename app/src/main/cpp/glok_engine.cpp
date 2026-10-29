@@ -174,6 +174,9 @@ bool Engine::load(const std::string & path, int n_ctx, int n_threads, int n_thre
     std::function<bool(float)> prog = progress;
     llama_model_params mp = llama_model_default_params();
     mp.n_gpu_layers = 0;
+    // tables the model only looks up a few rows of per token (Gemma 4's per-layer embeddings, about 1.8 GB in E2B)
+    // stay in the file and are read as needed instead of being loaded whole; models without such tables load as before
+    mp.lazy_mode = LLAMA_LAZY_MODE_ON;
     if (prog) {
         mp.progress_callback = [](float p, void * ud) -> bool {
             return (*static_cast<std::function<bool(float)> *>(ud))(p);
