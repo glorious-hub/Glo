@@ -95,10 +95,15 @@ jobs:
         run: |
           if [ -n "$KS" ]; then
             echo "$KS" | base64 -d > "$RUNNER_TEMP/glok.p12"
-            echo "GLOK_KEYSTORE=$RUNNER_TEMP/glok.p12" >> "$GITHUB_ENV"
           else
-            echo "::warning::no GLOK_KEYSTORE_B64 secret: the phone APK is built unsigned"
+            echo "::warning::no GLOK_KEYSTORE_B64 secret: signing with a one-off key made for this build. It cannot update an app signed with another key; add the real keystore as the secret to keep one key."
+            # alias and passwords are the ones app/build.gradle.kts expects (signingConfigs.release)
+            keytool -genkeypair -keystore "$RUNNER_TEMP/glok.p12" -storetype PKCS12 \
+              -alias glok -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass glok-release -keypass glok-release \
+              -dname "CN=Glok,O=Glok,C=KR"
           fi
+          echo "GLOK_KEYSTORE=$RUNNER_TEMP/glok.p12" >> "$GITHUB_ENV"
       - name: Build
         run: >
           ci/run-logged.sh gradle-${{ matrix.name }}
