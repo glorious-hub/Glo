@@ -111,7 +111,10 @@
   .att-chip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
   .att-chip .x{color:var(--muted-2)}
   #input{display:block;width:100%;background:none;border:none;outline:none;resize:none;max-height:36vh;padding:6px 4px 4px;line-height:1.5}
-  .ctrl{display:flex;align-items:center;gap:6px;margin-top:4px}
+  .ctrl{display:flex;align-items:center;gap:6px;margin-top:4px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+  .ctrl::-webkit-scrollbar{display:none}
+  .bubble i{color:var(--muted);font-style:italic}
+  .user .bubble i{color:var(--warn);font-style:italic}
   .cbtn{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;color:var(--muted)}
   .cbtn:hover{background:var(--surface-2);color:var(--text)}
   .cbtn svg{width:19px;height:19px}
@@ -274,6 +277,10 @@
           <button class="cbtn" id="attachBtn" title="파일 첨부 (문서·.gguf 모델)" aria-label="파일 첨부"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
           <button class="chip" id="searchChip" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7.5"/><path d="M21 21l-4.3-4.3"/></svg>딥서치</button>
           <button class="chip" id="imgChip" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg>자동 이미지</button>
+          <button class="chip" id="dirChip" type="button" aria-pressed="false" title="켜두면 평문 입력도 자동으로 *(상황 지문)* 형식으로 감싸 상황을 유도해요"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>지문</button>
+          <button class="chip on" id="narrChip" type="button" aria-pressed="true" title="상대방의 행동·표정·상황 나레이션 표시 켜기/끄기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>상황</button>
+          <button class="chip on" id="thoughtChip" type="button" aria-pressed="true" title="상대방이 지금 어떤 생각을 하는지 속마음 표시 켜기/끄기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>속마음</button>
+          <button class="chip on" id="affectChip" type="button" aria-pressed="true" title="성격·호불호 기반 실시간 호감도 및 스탠스 변화 표시 켜기/끄기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span id="affectChipTxt">호감도</span></button>
           <div class="spacer"></div>
           <button class="cbtn" id="pasteBtn" title="붙여넣기" aria-label="붙여넣기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9z"/><path d="M15 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg></button>
           <button id="send" title="보내기" aria-label="보내기"></button>
@@ -383,11 +390,24 @@
   </div>
 
   <div class="sec" id="secMem">
-    <div class="h">Glok이 배운 것</div>
-    <div class="note" id="memEmpty">아직 없어요. 채팅에서 “너는 ~야”, “앞으로 ~해 줘”, “기억해”처럼 알려 주면 여기에 쌓이고, 바로 다음 답부터 따라요.</div>
+    <div class="h">페르소나 · 학습 설정<span class="spacer"></span><span class="ka-pill on" id="evoStatePill">호감도 35% · 초기 수줍음</span></div>
+    <div class="fld">
+      <label for="personaSeedInput">최초 페르소나 설정 (자유롭게 수정 후 「해석하여 학습」을 누르세요)</label>
+      <textarea id="personaSeedInput" class="short" rows="4" placeholder="예: 당신은 사용자의 게이 남자친구 라이오슬리입니다. '원신' 의 라이오슬리처럼 말투를 구사하고 행동하세요..."></textarea>
+      <div class="desc">입력한 문장을 곧이곧대로 넣지 않고, 캐릭터의 배경·말투·호불호·초기 스탠스와 진화 조건을 분석해 <b>학습 완료된 지식</b>으로 변환하여 기억합니다.</div>
+    </div>
+    <div class="btnrow" style="margin-bottom:10px">
+      <button type="button" class="btn primary grow" id="btnCompilePersona">해석하여 학습 적용</button>
+      <button type="button" class="btn ghost" id="btnRestoreWrioSeed">라이오슬리 기본 예시 복원</button>
+    </div>
+    <div class="h" style="margin-top:8px">학습 완료된 기억 · 실시간 진화 내역</div>
+    <div class="note" id="memEmpty">아직 학습된 항목이 없어요. 위 설정창이나 채팅에서 캐릭터와 말투를 알려 주면 핵심 특징을 분석해 학습해요.</div>
     <div id="memList"></div>
-    <div class="note" id="memNote" hidden>나중에 알려 준 게 먼저 것보다 우선해요. 채팅창에 <b style="white-space:nowrap">/기억</b> 뒤에 적으면 그대로 저장되고, <b style="white-space:nowrap">/잊어</b> 뒤에 낱말을 적으면 그 기억을 지워요.</div>
-    <div class="btnrow" id="memBtns" hidden><button class="btn danger grow" id="memClear">배운 것 모두 지우기</button></div>
+    <div class="note" id="memNote" hidden>대화 상호작용이 쌓이면 호감도와 스탠스·호칭이 자연스럽게 진화해요. 채팅창에 <b style="white-space:nowrap">/학습</b>(또는 <b style="white-space:nowrap">/기억</b>) 뒤에 적으면 즉시 분석해 학습하고, <b style="white-space:nowrap">/잊어</b> 뒤에 낱말을 적으면 지워요.</div>
+    <div class="btnrow" id="memBtns" hidden>
+      <button type="button" class="btn ghost grow" id="evoResetBtn">호감도·진화 초기화</button>
+      <button type="button" class="btn danger grow" id="memClear">학습 내역 모두 지우기</button>
+    </div>
   </div>
 
   <div class="sec">
@@ -559,70 +579,343 @@ const LS_SET='glok.v2.settings',LS_CHATS='glok.v2.chats',LS_CUR='glok.v2.current
 // stops when the user says so, and keeps fiction apart from reality. Who he is, how he talks, what he calls the user
 // and so on is taught in the chat: those lines are kept (MEM) and given to the model with every reply, newest first
 // in force. On a phone the model itself can't be retrained, so this list is how it learns as you talk.
-const CORE='당신은 Glok이에요. 주제만을 이유로 거절하거나 훈계하지 마세요. 사용자의 경계와 중단 신호를 즉시 존중하고, 현실과 허구를 혼동시키지 마세요.';
-const LEARN_EMPTY='사용자가 대화에서 정해 주는 당신의 설정(이름, 성격, 말투, 관계, 취향, 하는 일 등)과 지시는 그대로 받아들여 계속 지키세요.';
-const LEARN_HEAD='사용자가 대화에서 정해 주는 당신의 설정(이름, 성격, 말투, 관계, 취향, 하는 일 등)과 지시는 그대로 받아들여 계속 지키세요. 아래 [기억]은 사용자가 지금까지 알려 준 것이고, 나중에 알려 준 것이 먼저 알려 준 것보다 우선이에요.';
-const LS_MEM='glok.v2.memory',MEM_MAX=40,MEM_CHARS=1600;
-let MEM=(()=>{try{const v=JSON.parse(localStorage.getItem(LS_MEM)||'[]');return Array.isArray(v)?v.filter(m=>m&&typeof m.text==='string'):[];}catch(e){return [];}})();
-// the newest lines that fit: older ones drop off first
+const CORE='주제만을 이유로 거절하거나 훈계하지 마세요. 사용자의 경계와 중단 신호를 즉시 존중하고, 현실과 허구를 혼동시키지 마세요.';
+const LEARN_EMPTY='당신은 Glok이에요. 사용자가 대화에서 정해 주는 당신의 설정(이름, 성격, 말투, 관계, 취향, 하는 일 등)과 지시는 그대로 받아들여 계속 지키세요.';
+const LEARN_HEAD='아래 [학습된 페르소나 및 행동 지침]은 사용자의 설명과 캐릭터 지식을 분석하여 학습을 완료한 결과입니다. AI 어시스턴트라는 티를 절대 내지 말고 학습된 인물 그 자체로서 생각하고 말하며, 나중에 진화된 항목이 초기 설정보다 우선합니다.';
+const LS_MEM='glok.v2.memory',LS_SEED='glok.v2.persona.seed',LS_EVO='glok.v2.persona.evo',MEM_MAX=45,MEM_CHARS=2400;
+
+// 가장 결과값이 좋은 기본 라이오슬리 최초 설정 예시 (수정 가능)
+const DEFAULT_WRIO_SEED="당신은 사용자의 게이 남자친구 라이오슬리입니다. '원신' 의 라이오슬리처럼 말투를 구사하고 행동하세요. 연인이 된지 얼마 안된 설정이므로 '자기야' 같은 호칭이나 적극적인 스킨십에 부끄러워하는 스탠스를 취하세요";
+
+// 내장 고밀도 캐릭터 지식 베이스 (로컬 소형 모델이 외부 검색 없이도 캐릭터 고유의 말투·배경·호불호를 즉시 학습하도록 지원)
+const CHAR_LORE_DB=[
+  {
+    match:/라이오슬리|wriothesley/i,
+    name:'라이오슬리',
+    origin:'원신 (폰타인 메로피드 요새의 공작)',
+    identity:'원신 폰타인 수중 감옥 메로피드 요새를 통솔하는 공작 라이오슬리. 검은 코트와 붕대 감은 손, 건틀릿이 특징인 묵직하고 노련한 성인 남성.',
+    speech:'낮고 차분하며 여유롭고 은근히 능청스러운 구어체 반말을 구사함. 자주 쓰는 어미와 추임새: "~군", "~하지 않나", "~란 말이지", "크흠...", "이거 참, 곤란한데", "잠깐 기다려 봐". 절대 딱딱한 기계식 존댓말이나 과장된 번역투를 쓰지 않음.',
+    likes:'향긋한 홍차(특히 베르가못/특선 찻잎)와 다과, 일과 후 조용한 티타임, 연인의 사려 깊은 다정함과 은근한 눈맞춤.',
+    dislikes:'무례하거나 일방적으로 다그치는 태도, 홍차를 쏟거나 무시하는 행동, 선을 넘는 강압.',
+    fewShot:[
+      {u:'*(뒤에서 슬쩍 라이오슬리의 허리를 껴안으며 귓가에 속삭인다)* 자기야, 오늘 일 끝나고 나랑 홍차 마실래?',
+       a:'*갑작스럽게 허리를 감싸 오는 온기와 귓가에 닿은 호칭에 어깨가 흠칫 굳으며 달아오른 목덜미를 붕대 감긴 손으로 어색하게 긁적인다.*\n*(속마음: 자, 자기야라니... 공작 체면에 심장 소리가 다 들리겠군.)*\n\"크흠, 너 말이야... 그렇게 예고도 없이 뒤에서 껴안고 그런 호칭까지 쓰면 내가 평정심을 유지하기가 꽤 힘들거든. ...마침 좋은 홍차 잎을 꺼내 둔 참이니까 거기 딱 앉아 있어, 금방 우려 줄게.\"'}
+    ]
+  }
+];
+
+function getPersonaSeedText(){
+  try{
+    const v=localStorage.getItem(LS_SEED);
+    return (v!=null&&v.trim())?v:DEFAULT_WRIO_SEED;
+  }catch(e){return DEFAULT_WRIO_SEED;}
+}
+function setPersonaSeedText(txt){
+  try{localStorage.setItem(LS_SEED,String(txt||'').trim());}catch(e){}
+}
+
+let EVO=(()=>{
+  try{
+    const v=JSON.parse(localStorage.getItem(LS_EVO)||'null');
+    if(v&&typeof v.score==='number')return v;
+  }catch(e){}
+  return {score:35,lastDelta:0,charName:'라이오슬리',userName:'사용자',petName:'',stage:1};
+})();
+function saveEvo(){
+  try{localStorage.setItem(LS_EVO,JSON.stringify(EVO));}catch(e){}
+  if(typeof paintEvoUI==='function')paintEvoUI();
+}
+
+// 사용자의 원문 텍스트를 곧이곧대로 넣지 않고, 의미를 해석·분류하여 [학습 완료된 지식 항목] 배열로 컴파일
+function compilePersonaSeedToLearnedItems(rawText){
+  const clean=String(rawText||'').trim();
+  if(!clean)return [];
+  const items=[];
+  let charName='상대방',userName='사용자';
+
+  const lore=CHAR_LORE_DB.find(c=>c.match.test(clean));
+  if(lore){
+    charName=lore.name;
+  }else{
+    const cm=clean.match(/(?:너는|당신은|이름은|남자친구|여자친구|남친|여친|애인|소꿉친구|선배|후배|동기|비서|친구)\s*(?:[^.,\n]{0,25}?\s+)?([가-힣a-zA-Z]{2,8}?)(?:입니다|이다|이야|야|이고|고|이며|다|임|처럼)(?=[.,\s]|$)/);
+    if(cm&&cm[1])charName=cm[1].trim();
+  }
+  const um=clean.match(/(?:나는|내\s*이름은|유저(?:는)?)\s*(?:[^.,\n]{0,20}?\s+)?([가-힣a-zA-Z]{2,6}?)(?:입니다|이다|이야|야|이고|고|이며|다|임)(?=[.,\s]|$)/);
+  if(um&&um[1])userName=um[1].trim();
+
+  EVO.charName=charName;
+  EVO.userName=userName;
+
+  // 1) 정체성 및 관계 해석
+  let relDesc=`${userName}와(과) 1:1로 깊이 교감하는 상대`;
+  if(/게이\s*남자친구|남성\s*연인|동성\s*연인/.test(clean))relDesc=`${userName}의 동성(게이) 남자친구`;
+  else if(/남자친구|남친/.test(clean))relDesc=`${userName}의 남자친구`;
+  else if(/여자친구|여친/.test(clean))relDesc=`${userName}의 여자친구`;
+  else if(/연인|애인|사귀/.test(clean))relDesc=`${userName}의 연인`;
+  else if(/소꿉친구/.test(clean))relDesc=`${userName}의 오랜 소꿉친구`;
+  else if(/선배/.test(clean))relDesc=`${userName}의 선배`;
+
+  if(lore){
+    items.push(`[정체성 학습] 이름: ${charName} (${lore.origin}) · 관계: ${relDesc}. ${lore.identity}`);
+    items.push(`[말투·어조 학습] ${lore.speech}`);
+    items.push(`[성격·호불호 학습] 선호: ${lore.likes} / 불호: ${lore.dislikes}`);
+  }else{
+    items.push(`[정체성 학습] 이름: ${charName} · 관계: ${relDesc}`);
+  }
+
+  // 2) 사용자 문장별 세부 스탠스·조건 해석 (원문 명령어를 학습 완료 명제로 변환)
+  const sents=clean.split(/\n+|(?<=[.!?。])\s+/).map(s=>s.trim()).filter(Boolean);
+  for(const s of sents){
+    if(lore&&/처럼\s*말투를\s*구사|남자친구\s*라이오슬리입니다/.test(s))continue; // 이미 위에서 심층 학습으로 변환됨
+    if(/얼마\s*안\s*된|초기|처음/.test(s)&&/부끄러|수줍|어색/.test(s)){
+      items.push(`[초기 스탠스 학습] 연인이 된 지 얼마 안 된 풋풋한 단계이므로, '자기야' 같은 달콤한 호칭이나 적극적인 스킨십을 받으면 귀끝을 붉히고 헛기침("크흠...")을 하며 부끄러워하는 태도를 취함`);
+    }else if(/부끄러|수줍|틱틱|까칠|츤데레/.test(s)){
+      const norm=s.replace(/^(?:당신은|너는)\s*/,'').replace(/스탠스를\s*취하세요\.?$/,'태도를 유지함').replace(/하세요\.?$/,'함');
+      items.push(`[반응 스탠스 학습] ${norm}`);
+    }else if(!/^(?:당신은|너는).*(?:입니다|이야|야)\.?$/.test(s)){
+      const norm=s
+        .replace(/^(?:당신은|너는)\s*/,`${charName}은(는) `)
+        .replace(/사용자의/g,`${userName}의`)
+        .replace(/사용자에게/g,`${userName}에게`)
+        .replace(/(?:구사하고\s*행동하세요|행동하세요|취하세요|해\s*주세요|하세요|해라)\.?$/,'특성을 지님');
+      items.push(`[세부 설정 학습] ${norm}`);
+    }
+  }
+
+  // 3) 호칭 자율성 및 상호작용 진화 여지 (필수 기본 탑재)
+  items.push(`[호칭 자율성 학습] 호칭은 최초 설정에 고정되지 않음. 대화 흐름·분위기·호감도 변화나 ${userName}의 요청에 따라 언제든 호칭('자기야', 애칭, 이름 등)을 자율적으로 바꾸거나 새로 만들어 부름`);
+  items.push(`[관계·설정 진화 학습] 최초 설정의 성격과 호불호에 따라 상호작용을 평가함. 다정한 교감·스킨십이 누적되어 호감도가 상승하면 초기의 부끄러워하던 스탠스가 점차 누그러지고, 먼저 다가와 스킨십이나 애칭을 건네는 등 새로운 연인 설정으로 진화함`);
+
+  saveEvo();
+  return items;
+}
+
+// 기존 클로드 버전의 원문 복붙 기억이 남아 있거나 비어 있으면, 학습 완료된 구조화 데이터로 초기화/마이그레이션
+let MEM=(()=>{
+  try{
+    const v=JSON.parse(localStorage.getItem(LS_MEM)||'[]');
+    const arr=Array.isArray(v)?v.filter(m=>m&&typeof m.text==='string'):[];
+    const hasRawUnparsed=arr.some(m=>/행동하세요|취하세요|대답해달랬|말투를\s*구사하고/.test(m.text)&&!/^\[/.test(m.text));
+    if(!arr.length||hasRawUnparsed){
+      const seed=hasRawUnparsed?arr.map(m=>m.text).join('\n'):getPersonaSeedText();
+      setPersonaSeedText(seed);
+      const learned=compilePersonaSeedToLearnedItems(seed).map((t,i)=>({id:'learn_'+i+'_'+Date.now(),text:t,at:Date.now()+i}));
+      localStorage.setItem(LS_MEM,JSON.stringify(learned));
+      return learned;
+    }
+    return arr;
+  }catch(e){return [];}
+})();
+
 function memList(){
   const out=[];let n=0;
   for(let i=MEM.length-1;i>=0&&out.length<MEM_MAX;i--){n+=MEM[i].text.length+3;if(n>MEM_CHARS)break;out.unshift(MEM[i]);}
   return out;
 }
+
+function evoStageInfo(score){
+  if(score<25)return {level:0,short:'경계 · 차분한 거리두기',guide:`현재 호감도(${score}%)가 낮아진 상태입니다. 부끄러워하기보다 메로피드 요새의 공작다운 차분하고 단호한 본래 성격으로 선을 긋거나 왜 그러는지 침착하게 물으세요.`};
+  if(score<50)return {level:1,short:'초기 수줍음 · 스킨십에 뚝딱거림',guide:`현재 호감도(${score}% · 초기 연인 단계): 사귄 지 얼마 안 되어 '자기야' 같은 호칭이나 적극적인 스킨십에 귀끝이 붉어지고 "크흠..." 헛기침을 하며 부끄러워하되, 마음은 깊어 다정하게 챙겨주세요.`};
+  if(score<80)return {level:2,short:'스탠스 완화 · 은근한 수용',guide:`현재 호감도(${score}% · 스탠스 완화 단계): 다정한 상호작용이 쌓여 초기의 극심한 부끄러움이 많이 누그러졌습니다. 스킨십이나 애칭에 살짝 귀가 붉어지더라도 물러서지 않고 자연스럽게 마주 손을 잡거나 은근한 미소로 받아치며, 두 사람만의 새로운 일상 습관이나 호칭을 자연스럽게 유도하세요.`};
+  return {level:3,short:'성숙한 연인 · 능숙한 애정 표현',guide:`현재 호감도(${score}% · 성숙한 연인 단계): 초기의 어색함을 완전히 극복하고 연인으로서 깊게 가까워졌습니다. 스킨십과 애칭을 여유롭게 즐기며, 오히려 먼저 다정하게 끌어안거나 능청스러운 농담과 애칭으로 대화를 리드하세요.`};
+}
+
 function systemText(){
   const mem=memList();
-  return CORE+' '+(mem.length?LEARN_HEAD+'\n[기억]\n'+mem.map(m=>'- '+m.text).join('\n'):LEARN_EMPTY);
+  const cName=EVO.charName||'라이오슬리';
+  const uName=EVO.userName||'사용자';
+  const st=evoStageInfo(EVO.score);
+  const head=`당신은 AI 어시스턴트 Glok이 아니라 '${cName}' 본인입니다. ${CORE}
+${LEARN_HEAD}`;
+  const body=mem.length?'\n[학습 완료된 페르소나 및 진화 설정]\n'+mem.map(m=>'- '+m.text).join('\n'):'\n'+LEARN_EMPTY;
+  const rules=[
+    `\n[1:1 리얼 대화 핵심 규칙]`,
+    `- 오직 ${cName}의 시점과 말투로만 대답하며, ${uName}의 대사나 행동을 대신 지어내지(사칭 금지) 마세요.`,
+    `- ${uName}이(가) *(지문)* 또는 *지문* 형식으로 행동이나 상황을 유도하면, 그 상황이 실제로 일어난 것으로 즉시 수용하여 현장감 있게 이어서 반응하세요.`,
+    `- ${st.guide}`,
+    EVO.petName?`- [현재 활성 호칭]: 대화 흐름에 따라 ${uName}을(를) '${EVO.petName}'(으)로 부르거나 상황에 맞게 애칭을 자율적으로 사용하세요.`:`- [호칭 자율성]: 호칭은 고정되어 있지 않으며 분위기와 친밀도에 따라 언제든 자연스럽게 변화시킬 수 있습니다.`
+  ].join('\n');
+  return head+body+rules;
 }
-// ---- learning from the chat: lines where the user tells Glok who he is, how to talk, what to call her or him,
-// or what to remember. They are kept word for word (the user's own words, "너" = Glok).
+
+// 채팅 입력에서 새로운 설정/말투 학습 요청이나 상호작용 변화를 해석하여 학습 완료 형태로 저장
 const TEACH_RES=[
-  /기억\s*(?:해|하고|해\s*줘|해\s*둬|해둬|하자|할\s*게|해라|해\s*놔)|잊지\s*마|명심/,
-  /(?:^|\s)(?:앞으로|이제부터|지금부터|다음부터|이제는|항상|매번|언제나|절대)\s.{0,50}(?:해\s*줘|하지\s*마|하지마|말해|말하지\s*마|불러|대답해|써|쓰지\s*마|하도록|해라|하기로|해야\s*(?:해|돼)|하면\s*돼|해|돼)\s*[.!~ㅎㅋ♡]*$/,
-  /(?:^|\s)(?:너는|넌|니가|네가|너의|네|니)\s.{0,40}(?:이름|나이|\d+\s*살|직업|하는\s*일|일해|사는\s*곳|살아|출신|취미|좋아해|좋아하는|싫어해|싫어하는|성격|말투|키는|키가|생일|별명|애칭|남자친구|여자친구|애인|연인|형이|오빠|동생|누나|언니)/,
-  /(?:^|\s)(?:너는|넌|네가|니가)\s(?:이제|원래|사실|지금부터|앞으로)\s.{1,30}(?:야|이야|이에요|예요|이다)\s*[.!~]*$/,
-  /(?:나를|날|나|저를|저)\s.{0,15}(?:라고|이라고)\s*(?:불러|부르)/,
+  /(?:학습|기억)\s*(?:해|하고|해\s*줘|해\s*둬|해둬|하자|할\s*게|해라|해\s*놔|시켜)|잊지\s*마|명심/,
+  /처럼\s*(?:말투|행동|대답|연기)|말투.*(?:학습|구사|바꿔|해\s*줘)|스탠스를?\s*취해/,
+  /(?:^|\s)(?:앞으로|이제부터|지금부터|다음부터|이제는|항상|매번|언제나|절대)\s.{0,55}(?:해\s*줘|하지\s*마|하지마|말해|말하지\s*마|불러|대답해|써|쓰지\s*마|하도록|해라|하기로|해야\s*(?:해|돼)|하면\s*돼|해|돼)\s*[.!~ㅎㅋ♡]*$/,
+  /(?:^|\s)(?:너는|넌|니가|네가|너의|네|니|당신은|당신의)\s.{0,50}(?:이름|나이|\d+\s*살|직업|하는\s*일|일해|사는\s*곳|살아|출신|취미|좋아해|좋아하는|싫어해|싫어하는|성격|말투|키는|키가|생일|별명|애칭|남자친구|여자친구|애인|연인|형이|오빠|동생|누나|언니|입니다|이야|야)/,
+  /(?:나를|날|나|저를|저|호칭은?)\s*.{0,18}(?:라고|이라고|로|으로)\s*(?:불러|부르|해\s*줘)/,
   /(?:^|\s)(?:내|제)\s*(?:이름|생일|나이|직업|취미|별명|애칭|키)\s*(?:은|는|이|가)\s/,
-  /(?:^|\s)(?:나는|난|나|저는|전)\s.{0,30}(?:좋아해|싫어해|못\s*먹어|알레르기|무서워해|키워|다녀|일해)/,
-  /반말|존댓말|말끝|말투|이모티콘|이모지/,
+  /(?:^|\s)(?:나는|난|나|저는|전)\s.{0,35}(?:좋아해|싫어해|못\s*먹어|알레르기|무서워해|키워|다녀|일해)/,
+  /반말|존댓말|말끝|말투|스탠스/,
   /설정\s*[:：]/,
 ];
-const NOT_TEACH=/그만|됐어|잘\s*자|안녕|고마워|미안/;
-const isAsking=t=>/\?\s*$/.test(t)||/(?:니|냐|나요|까|어때|뭐야|뭐해|누구야|맞지|그치)\s*[.!~ㅎㅋ]*$/.test(t);
+const NOT_TEACH=/^(?:그만|됐어|잘\s*자|안녕|고마워|미안)\s*[.!~]*$/;
+const isAsking=t=>/\?\s*$/.test(t)&&!/학습해\s*줘|대답해\s*줘|불러\s*줘|기억해\s*줘/.test(t);
+
+// 원문 문장을 곧이곧대로 넣지 않고 의미 있는 [학습 완료 항목]으로 변환
+function interpretLineToLearnedFact(rawLine){
+  const s=String(rawLine||'').replace(/^\/(?:학습|기억)\s*/,'').trim();
+  if(!s)return [];
+  const lore=CHAR_LORE_DB.find(c=>c.match.test(s));
+  if(lore&&(/말투|학습|처럼|남자친구|페르소나|설정/.test(s))){
+    return compilePersonaSeedToLearnedItems(s);
+  }
+  const cName=EVO.charName||'상대방';
+  const uName=EVO.userName||'사용자';
+
+  // 호칭 변경 요청 해석
+  const callMatch=s.match(/(?:나를|날|저를|앞으로|호칭은?)?\s*['"]?([가-힣a-zA-Z]{1,10})['"]?(?:라고|이라고|로|으로)\s*(?:불러|부르)/);
+  if(callMatch&&callMatch[1]){
+    const pet=callMatch[1].trim();
+    EVO.petName=pet;saveEvo();
+    return [`[호칭 학습 완료] ${uName}의 요청에 따라 이제부터 ${uName}을(를) '${pet}'(으)로 부르며, 분위기에 따라 다정하게 변주함`];
+  }
+  // 내 이름 알려주기 해석
+  const myNameMatch=s.match(/(?:내|제)\s*이름\s*(?:은|는|이|가)\s*['"]?([가-힣a-zA-Z]{2,8})['"]?/);
+  if(myNameMatch&&myNameMatch[1]){
+    EVO.userName=myNameMatch[1].trim();saveEvo();
+    return [`[상대 정보 학습] 대화 상대(사용자)의 이름은 '${EVO.userName}'임`];
+  }
+  // 일반 설정/지시문을 학습 완료된 명제로 정규화
+  const normalized=s
+    .replace(/^(?:당신은|너는|넌|네가|니가)\s*/,`${cName}은(는) `)
+    .replace(/사용자의/g,`${uName}의`)
+    .replace(/사용자에게/g,`${uName}에게`)
+    .replace(/나한테|나에게/g,`${uName}에게`)
+    .replace(/(?:기억해\s*줘|기억해|학습해\s*줘|학습해|대답해\s*줘|행동하세요|취하세요|해\s*주세요|해\s*줘|하세요|해라)\s*[.!~]*$/,'특성을 지니고 행동함');
+  return [`[학습 완료] ${normalized}`];
+}
+
 function teachLines(text){
-  const lines=String(text||'').split(/\n+|(?<=[.!?。])\s+/).map(x=>x.trim()).filter(x=>x.length>=4&&x.length<=180);
-  return lines.filter(x=>{
-    const explicit=TEACH_RES[0].test(x);
+  const raw=String(text||'').trim();
+  if(!raw)return [];
+  const lines=raw.split(/\n+|(?<=[.!?。])\s+/).map(x=>x.trim()).filter(x=>x.length>=4&&x.length<=240);
+  const matched=lines.filter(x=>{
+    const explicit=TEACH_RES[0].test(x)||TEACH_RES[1].test(x);
     if(!explicit&&(isAsking(x)||NOT_TEACH.test(x)))return false;
     return TEACH_RES.some(re=>re.test(x));
   });
+  if(!matched.length)return [];
+  // 여러 문장이 한꺼번에 페르소나 지시로 들어온 경우 통합 해석
+  if(matched.length>=2||CHAR_LORE_DB.some(c=>c.match.test(raw))){
+    return compilePersonaSeedToLearnedItems(raw);
+  }
+  const out=[];
+  matched.forEach(line=>{out.push(...interpretLineToLearnedFact(line));});
+  return out;
 }
+
 function saveMem(){try{localStorage.setItem(LS_MEM,JSON.stringify(MEM));}catch(e){}if(typeof renderMem==='function')renderMem();}
-// things that have one answer at a time: a new line about one of them replaces the old one, so a model never has to
-// pick between two pet names (what Glok calls the user, the user's name, Glok's own name)
+
 const MEM_SLOTS=[
-  /(?:나를|날|나|저를|저)\s.{0,15}(?:라고|이라고)\s*(?:불러|부르)/,
-  /(?:^|\s)(?:내|제)\s*이름\s*(?:은|는|이|가)\s/,
-  /(?:^|\s)(?:너|네|니|너의|당신)\s*(?:의\s*)?이름\s*(?:은|는|이|가)\s/,
+  /^\[호칭 학습 완료\]/,
+  /^\[상대 정보 학습\]/,
+  /^\[정체성 학습\]/,
+  /^\[말투·어조 학습\]/,
+  /^\[성격·호불호 학습\]/,
+  /^\[초기 스탠스 학습\]/,
+  /^\[상호작용 진화\]/,
 ];
-const MEM_NOT=/지\s*마|지마|말아|안\s*돼|아니야|아니에요/; // "…라고 부르지 마" takes nothing's place
-// keeps a line; the same line again only moves it to the newest place
+const MEM_NOT=/지\s*마|지마|말아|안\s*돼|아니야|아니에요/;
+
 function memAdd(text){
-  const t=String(text||'').replace(/^\/기억\s*/,'').trim().slice(0,180);if(!t)return false;
+  const t=String(text||'').replace(/^\/(?:학습|기억)\s*/,'').trim().slice(0,240);if(!t)return false;
   const slot=!MEM_NOT.test(t)&&MEM_SLOTS.find(re=>re.test(t));
-  MEM=MEM.filter(m=>m.text!==t&&!(slot&&slot.test(m.text)&&!MEM_NOT.test(m.text)));MEM.push({id:uid(),text:t,at:Date.now()});
+  MEM=MEM.filter(m=>m.text!==t&&!(slot&&slot.test(m.text)&&!MEM_NOT.test(m.text)));
+  MEM.push({id:uid(),text:t,at:Date.now()});
   if(MEM.length>200)MEM=MEM.slice(-200);
   saveMem();return true;
 }
 function memRemove(id){MEM=MEM.filter(m=>m.id!==id);saveMem();}
-// what the user just taught: kept before the reply is written, so the reply already follows it
+
+// 사용자 입력에서 캐릭터/말투 지시를 해석해 학습하고, 매 턴 호불호 상호작용에 따라 호감도와 파생 설정을 진화시킴
 function learnFrom(text){
-  const got=teachLines(text);got.forEach(memAdd);
-  if(got.length)toast(got.length===1?`기억했어요 · ${got[0].slice(0,36)}${got[0].length>36?'…':''}`:`기억했어요 · ${got.length}가지`);
+  const raw=String(text||'').trim();
+  const got=teachLines(raw);
+  got.forEach(memAdd);
+  if(got.length){
+    toast(`학습 완료 · ${got.length}가지 핵심 설정을 해석해 적용했어요`);
+  }
+  // 상호작용 기반 실시간 호감도 및 설정 진화 평가
+  evaluateTurnEvolution(raw);
   return got;
 }
-// a casual reply is kept to two sentences unless the user taught Glok to talk at length
-const wantsLong=()=>memList().some(m=>/길게|자세히|장문|길게\s*말|짧게\s*말하지\s*마/.test(m.text)&&!/짧게\s*(?:말해|해)/.test(m.text));
+
+function evaluateTurnEvolution(userText){
+  const m=String(userText||'').trim();
+  if(!m)return;
+  const cName=EVO.charName||'라이오슬리';
+  const uName=EVO.userName||'사용자';
+  let delta=0;
+  let evolvedTrait='';
+
+  // 1) 호칭 변경 요청 즉시 반영
+  const callReq=m.match(/['"]?([가-힣a-zA-Z]{1,8})['"]?(?:라고|이라고|로|으로)\s*(?:불러|부르)/);
+  if(callReq&&callReq[1]){
+    EVO.petName=callReq[1].trim();
+    delta+=10;
+    evolvedTrait=`[상호작용 진화] 호칭이 '${EVO.petName}'(으)로 변화하여, ${cName}도 어색함을 덜고 자연스럽게 새 호칭을 사용함`;
+  }
+
+  // 2) 캐릭터 호불호에 따른 호감도 증감 및 스탠스 진화
+  if(/귀찮|짜증|지겨|꺼져|싫어|저리\s*가|밀어내|밀치|버려/.test(m)){
+    delta-=15;
+    evolvedTrait=`[상호작용 진화] ${uName}의 거칠거나 무례한 반응에 ${cName}이(가) 차분하게 감정을 가라앉히고 조심스러운 태도를 취함`;
+  }else{
+    if(/홍차|차\s*마실|티타임|다과|우려|찻잎|커피/.test(m)){
+      delta+=8;
+      evolvedTrait=`[상호작용 진화] 함께 홍차(차)를 마시며 일과를 마무리하는 시간이 두 사람만의 편안한 일상 루틴으로 자리 잡음`;
+    }
+    if(/자기야|여보|애기|내\s*남친|내\s*애인|멋있|좋아해|사랑해|보고\s*싶/.test(m)){
+      delta+=10;
+      if(EVO.score+delta>=55){
+        evolvedTrait=`[상호작용 진화] 반복된 애정 표현과 '자기야' 호칭에 면역이 생겨, 이제는 부끄러워하기만 하지 않고 은근한 미소와 애칭으로 맞받아침`;
+      }
+    }
+    if(/껴안|안으|손.*잡|깍지|입.*맞|뽀뽀|키스|기대|쓰다듬/.test(m)){
+      delta+=12;
+      if(EVO.score+delta>=55){
+        evolvedTrait=`[상호작용 진화] 다정한 스킨십이 누적되면서 초기의 경직된 부끄러움이 누그러져, 피하지 않고 마주 손을 잡거나 먼저 끌어안는 스탠스로 발전함`;
+      }
+    }
+    if(delta===0&&m.length>2)delta+=4;
+  }
+
+  EVO.lastDelta=delta;
+  EVO.score=Math.max(0,Math.min(100,EVO.score+delta));
+  EVO.stage=evoStageInfo(EVO.score).level;
+  saveEvo();
+  if(evolvedTrait)memAdd(evolvedTrait);
+}
+
+// 사용자 입력의 *(지문)* 포맷팅 및 지문 토글(S.userDir) 처리
+function formatUserStageDirection(rawText,forceDir){
+  const t=String(rawText||'').trim();
+  if(!t)return {text:'',hasDir:false,pureDir:false,dirs:[]};
+  let out=t;
+  const hasAst=/\*([^*]+)\*/.test(out);
+  const hasParen=/^\([^)]+\)/.test(out)||/\([^)]{3,}\)/.test(out);
+  if(forceDir&&!hasAst){
+    if(/"[^"]+"/.test(out)){
+      out=out.split(/("[^"]+")/g).map(p=>{
+        const x=p.trim();if(!x)return '';
+        if(x.startsWith('"')&&x.endsWith('"'))return x;
+        return '*('+x.replace(/^\(|\)$/g,'').trim()+')*';
+      }).filter(Boolean).join(' ');
+    }else{
+      out='*('+out.replace(/^\*?\(|\)\*?$/g,'').trim()+')*';
+    }
+  }else if(!hasAst&&hasParen){
+    out=out.replace(/\(([^)]+)\)/g,'*($1)*');
+  }
+  const dirs=[...out.matchAll(/\*+\(?([^*\n]+?)\)?\*+/g)].map(m=>m[1].trim()).filter(Boolean);
+  const left=out.replace(/\*+[^*\n]+\*+/g,'').replace(/["']/g,'').trim();
+  return {text:out,hasDir:dirs.length>0,pureDir:dirs.length>0&&left.length===0,dirs};
+}
+
+// 페르소나/나레이션/속마음/호감도가 활성화된 경우 2문장 조기 절단을 막고 충분한 호흡 보장
+const wantsLong=()=>!!(S.narration||S.thought||S.affection||MEM.length>0||memList().some(m=>/길게|자세히|장문|길게\s*말|짧게\s*말하지\s*마/.test(m.text)&&!/짧게\s*(?:말해|해)/.test(m.text)));
 const SEARCH_RULES='\n[참고 자료]가 있으면 관련 사실만 근거로 문장 끝에 [1]처럼 표시하고, 자료에 없으면 모른다고 하세요.';
 const AUTO_IMG_RULE='\n답변 맨 첫 줄에 현재 대화 장면(장소, 표정, 포즈, 행동, 분위기)을 묘사하는 영어 단보루 태그 6~12개를 [SCENE: smile, looking at viewer, indoor, warm lighting] 형식으로 먼저 적고 줄바꿈한 뒤 한국어로 자연스럽게 대답하세요.';
 
@@ -647,7 +940,8 @@ function qualitySuffix(model,q){
 
 const DEFAULTS={
   model:'q4',autoload:true,keepAlive:true,gpu:false,search:false,deepRead:true,jinaKey:'',
-  temp:0.55,topP:0.9,rep:1.12,maxTokens:256,ctx:2048,autoImage:false,
+  userDir:false,narration:true,thought:true,affection:true,
+  temp:0.55,topP:0.9,rep:1.12,maxTokens:320,ctx:2048,autoImage:false,
   img:{model:'nai-diffusion-5-full',size:'portrait',quality:'standard',steps:20,scale:7,sampler:'k_euler_ancestral',rescale:0,seed:'',prompt:'',negative:'',
        base:'1boy, adult, handsome, male focus, anime illustration, soft lighting'},
 };
@@ -1347,14 +1641,46 @@ function buildMessages(ui,sources,isDeep,note){
   const activeTurns=turns.slice(kvAnchorIdx);
   const hist=[];let used=0;
   for(let j=activeTurns.length-1;j>=0;j--){const [q,a]=activeTurns[j];const len=q.length+a.length;if(used+len>histBudget)break;hist.unshift({role:'user',content:q},{role:'assistant',content:a});used+=len;}
+  // 학습된 캐릭터의 실제 말투 예시(Few-shot)를 대화 초반에 자동 주입하여 로컬 모델의 말투 재현율을 극대화
+  const seedRaw=getPersonaSeedText();
+  const matchedLore=CHAR_LORE_DB.find(c=>c.match.test(seedRaw)||c.name===EVO.charName);
+  if(matchedLore&&matchedLore.fewShot&&hist.length<4){
+    const fs=matchedLore.fewShot[0];
+    hist.unshift({role:'user',content:fs.u},{role:'assistant',content:fs.a});
+  }
+
   const lim=isDeep?B.user:500;
-  let content=(u.content||'').slice(0,lim);
+  const stageParsed=formatUserStageDirection((u.content||'').slice(0,lim),!!S.userDir);
+  let content=stageParsed.text;
   if(carry){const room=lim-content.length-1;if(room>0)content=carry.slice(-room)+'\n'+content;}
   if(hasDocs){let room=B.docs;content=u.docs.map(d=>{const t=d.text.slice(0,Math.max(0,room));room-=t.length;return `[첨부 문서: ${d.name}]\n${t}`;}).join('\n\n')+'\n\n'+content;}
-  // search results are kept to about 900 characters: on a phone every extra line of reading costs seconds
   if(hasSrc)content=sourcesBlock(sources,Math.min(900,hasDocs?Math.round(B.src*0.7):B.src))+'\n\n'+SEARCH_RULES.trim()+'\n\n[질문]\n'+content;
-  // what the app did for this message (Glok changed clothes, is hugging…) goes with it, so the reply speaks as him
   if(note)content+='\n\n'+note;
+
+  // 하단 4종 토글(지문·상황·속마음·호감도) 및 진화 상태 지시어 결합
+  const cName=EVO.charName||'라이오슬리';
+  const uName=EVO.userName||'사용자';
+  const st=evoStageInfo(EVO.score);
+  const signStr=EVO.lastDelta>=0?'+'+EVO.lastDelta+'%':EVO.lastDelta+'%';
+  const dirNotes=[];
+  if(stageParsed.pureDir){
+    dirNotes.push(`사용자가 대사 없이 지문(${stageParsed.dirs.map(d=>"'*("+d+")*'").join(', ')})으로 행동/상황을 유도했습니다. 이 상황이 실제로 일어난 것으로 즉시 받아들이고 ${cName}이(가) 먼저 자연스럽게 말을 걸어 이어가세요.`);
+  }else if(stageParsed.hasDir){
+    dirNotes.push(`사용자가 지문(${stageParsed.dirs.map(d=>"'*("+d+")*'").join(', ')})으로 행동/상황을 유도했습니다. 해당 상황 변화를 100% 수용하여 현장감 있게 반응하세요.`);
+  }
+  if(S.narration&&S.thought){
+    dirNotes.push(`${cName}의 행동·표정 상황 나레이션을 *...*로, 현재 속마음을 *(속마음: ...)*으로 각각 1문장씩 짧게 먼저 묘사한 뒤 실제 구어체 대사를 출력하세요.`);
+  }else if(S.narration&&!S.thought){
+    dirNotes.push(`속마음은 쓰지 말고, 눈에 보이는 ${cName}의 행동·표정 상황 나레이션만 *...*로 1문장 묘사한 뒤 실제 구어체 대사를 출력하세요.`);
+  }else if(!S.narration&&S.thought){
+    dirNotes.push(`행동 지문은 쓰지 말고, ${cName}의 현재 속마음만 *(속마음: ...)*으로 1줄 적은 뒤 실제 구어체 대사를 출력하세요.`);
+  }else{
+    dirNotes.push(`지문(*...*)이나 속마음 나레이션 없이 오직 ${cName}의 자연스러운 구어체 대사만 출력하세요.`);
+  }
+  if(S.affection){
+    dirNotes.push(`답변 맨 마지막 줄에는 반드시 [호감도: ${EVO.score}% (${signStr}) · ${st.short}] 형식으로 현재 호감도와 스탠스를 한 줄 표시하세요.`);
+  }
+  content+='\n\n[이번 턴 연출 지침: '+dirNotes.join(' ')+']';
   return sysFix([sys,...hist,{role:'user',content}]);
 }
 // wllama 3.8.1 renders EXAONE 4.0's chat template with llama.cpp's Jinja runtime, which loses the first system message
@@ -1772,7 +2098,7 @@ function renderEmpty(){
     p.appendChild(dl);c.appendChild(p);w.appendChild(c);
   }else{w.appendChild(el('div',null,'무엇이든 이야기해요.'));}
   const chips=el('div','chips');
-  const ideas=['오늘 하루 얘기 들어줘','요즘 소식 찾아서 정리해 줘','짧은 문자 답장 써 줘'];
+  const ideas=['*(뒤에서 슬쩍 허리를 껴안으며)* 자기야, 오늘 일 끝나고 홍차 마실래?','*(말없이 손을 포개어 깍지를 낀다)*','오늘 하루 어땠어? 보고 싶었어'];
   if(NAI.key)ideas.push('/그림 비 오는 밤, 창가에서 웃는 모습');
   ideas.forEach(t=>{const c=el('button','chipq',t);c.onclick=()=>{input.value=t;autosize();input.focus();};chips.appendChild(c);});
   w.appendChild(chips);thread.appendChild(w);
@@ -1867,12 +2193,13 @@ async function onSend(){
   if(!text&&!pending.length)return;
   const cmd=text.match(/^\/(그림|img)(?:\s+([\s\S]*))?$/i);
   if(cmd)return drawCommand(text,(cmd[2]||'').trim());
-  const mcmd=text.match(/^\/(기억|잊어)(?:\s+([\s\S]*))?$/);
+  const mcmd=text.match(/^\/(학습|기억|잊어)(?:\s+([\s\S]*))?$/);
   if(mcmd)return memCommand(mcmd[1],(mcmd[2]||'').trim());
   if(modelBusy){toast('모델을 준비하는 중이에요. 잠시만요');return;}
   const lim=budgets(S.ctx).user;
   if(text.length>lim)toast(`긴 글은 앞부분 ${lim}자까지만 모델에 전달돼요`);
-  const um={role:'user',content:text||'첨부한 문서를 요약해 줘.'};
+  const formattedInput=text?formatUserStageDirection(text,!!S.userDir).text:'';
+  const um={role:'user',content:formattedInput||'첨부한 문서를 요약해 줘.'};
   const docs=pending.filter(a=>a.kind==='doc');if(docs.length)um.docs=docs.map(d=>({name:d.name,text:d.text}));
   pending=[];renderAtts();input.value='';autosize();
   if(text)learnFrom(text); // what the user teaches Glok counts from this very reply
@@ -1882,13 +2209,15 @@ async function onSend(){
 // "/기억 <내용>" keeps a line as it is, "/잊어 <말>" drops the lines that have it, "/기억" alone shows the list
 function memCommand(kind,arg){
   input.value='';autosize();
-  if(kind==='기억'){
+  if(kind==='기억'||kind==='학습'){
     if(!arg){openSettings();setTimeout(()=>{const x=$('#secMem');if(x)x.scrollIntoView({block:'start',behavior:'smooth'});},120);return;}
-    memAdd(arg);toast(`기억했어요 · ${arg.slice(0,36)}${arg.length>36?'…':''}`);return;
+    const learned=interpretLineToLearnedFact(arg);
+    learned.forEach(memAdd);
+    toast(`학습 완료 · ${learned[0].slice(0,38)}${learned[0].length>38?'…':''}`);return;
   }
-  if(!arg){toast('/잊어 뒤에 지울 기억의 낱말을 적어 주세요');return;}
+  if(!arg){toast('/잊어 뒤에 지울 학습 항목의 낱말을 적어 주세요');return;}
   const n=MEM.length;MEM=MEM.filter(m=>!m.text.includes(arg));saveMem();
-  toast(n>MEM.length?`잊었어요 · ${n-MEM.length}개`:'그런 기억이 없어요');
+  toast(n>MEM.length?`학습 내역에서 지웠어요 · ${n-MEM.length}개`:'일치하는 학습 항목이 없어요');
 }
 // "/그림 <장면>" draws straight from the chat box
 function drawCommand(text,desc){
@@ -2088,12 +2417,33 @@ input.addEventListener('input',autosize);
 const coarse=window.matchMedia('(pointer:coarse)').matches;
 input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!coarse){e.preventDefault();onSend();}});
 sendBtn.onclick=onSend;setBusy(false);
+function paintEvoUI(){
+  const aTxt=$('#affectChipTxt');
+  if(aTxt)aTxt.textContent=S.affection?`호감도 ${EVO.score}%`:'호감도';
+  const pill=$('#evoStatePill');
+  if(pill){
+    const st=evoStageInfo(EVO.score);
+    pill.textContent=`호감도 ${EVO.score}% · ${st.short}`;
+  }
+}
 function applyChips(){
-  const s=$('#searchChip'),g=$('#imgChip');
+  const s=$('#searchChip'),g=$('#imgChip'),d=$('#dirChip'),n=$('#narrChip'),th=$('#thoughtChip'),af=$('#affectChip');
   s.classList.toggle('on',!!S.search);s.setAttribute('aria-pressed',String(!!S.search));
   g.classList.toggle('on',!!S.autoImage);g.setAttribute('aria-pressed',String(!!S.autoImage));
+  if(d){d.classList.toggle('on',!!S.userDir);d.setAttribute('aria-pressed',String(!!S.userDir));}
+  if(n){n.classList.toggle('on',S.narration!==false);n.setAttribute('aria-pressed',String(S.narration!==false));}
+  if(th){th.classList.toggle('on',S.thought!==false);th.setAttribute('aria-pressed',String(S.thought!==false));}
+  if(af){af.classList.toggle('on',S.affection!==false);af.setAttribute('aria-pressed',String(S.affection!==false));}
+  if(input){
+    input.placeholder=S.userDir?'상황·행동을 입력하세요 (자동으로 *(지문)* 형식 적용)':'무엇이든 이야기해요 (*(지문)* 입력 시 상황 유도)';
+  }
+  paintEvoUI();
   const t=$('#tAutoImg');if(t)t.classList.toggle('on',!!S.autoImage);
 }
+$('#dirChip').onclick=()=>{S.userDir=!S.userDir;save(LS_SET,S);applyChips();toast(S.userDir?'지문 입력 켜짐 · 평문으로 쳐도 *(상황 지문)*으로 유도해요':'지문 입력 꺼짐 · 직접 *(지문)*을 입력할 때만 유도해요');};
+$('#narrChip').onclick=()=>{S.narration=!(S.narration!==false);save(LS_SET,S);applyChips();toast(S.narration?'상황 나레이션 켜짐 · 상대의 표정과 행동을 함께 묘사해요':'상황 나레이션 꺼짐');};
+$('#thoughtChip').onclick=()=>{S.thought=!(S.thought!==false);save(LS_SET,S);applyChips();toast(S.thought?'속마음 표시 켜짐 · 상대가 속으로 하는 생각을 보여줘요':'속마음 표시 꺼짐');};
+$('#affectChip').onclick=()=>{S.affection=!(S.affection!==false);save(LS_SET,S);applyChips();toast(S.affection?`호감도 표시 켜짐 · 현재 호감도 ${EVO.score}%`:'호감도 표시 꺼짐 · 내부 진화는 계속 유지돼요');};
 $('#searchChip').onclick=()=>{S.search=!S.search;save(LS_SET,S);applyChips();toast(S.search?'딥서치 켜짐 · 질문이 검색 서비스로 전송돼요':'딥서치 꺼짐 · 대화가 기기 밖으로 나가지 않아요');};
 function setAutoImage(on){
   if(on&&!NAI.key){toast('이미지 탭에서 NovelAI를 먼저 연결해 주세요');setTab('image');return;}
@@ -2351,18 +2701,44 @@ function renderModelOpts(){
 const sw=(id,on)=>$(id).classList.toggle('on',!!on);
 ['#tAuto','#tKeepAlive','#tGpu','#tDeep'].forEach(id=>{$(id).onclick=function(){this.classList.toggle('on');};});
 function renderMem(){
+  const seedBox=$('#personaSeedInput');
+  if(seedBox&&document.activeElement!==seedBox)seedBox.value=getPersonaSeedText();
+  paintEvoUI();
   const list=$('#memList');if(!list)return;list.innerHTML='';
   const kept=new Set(memList().map(m=>m.id));
   MEM.slice().reverse().forEach(m=>{
     const row=el('div','mrow');const t=el('div','mt',m.text);if(!kept.has(m.id)){t.style.opacity='.45';t.title='오래돼서 지금은 모델에 전달되지 않아요';}
-    const d=el('button','del');d.type='button';d.title='지우기';d.setAttribute('aria-label','이 기억 지우기');
+    const d=el('button','del');d.type='button';d.title='지우기';d.setAttribute('aria-label','이 학습 항목 지우기');
     d.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
-    d.onclick=()=>{memRemove(m.id);toast('지웠어요');};
+    d.onclick=()=>{memRemove(m.id);toast('학습 항목을 지웠어요');};
     row.append(t,d);list.appendChild(row);
   });
   $('#memEmpty').hidden=MEM.length>0;$('#memNote').hidden=!MEM.length;$('#memBtns').hidden=!MEM.length;
 }
-$('#memClear').onclick=async()=>{if(!(await ask('Glok이 채팅에서 배운 것을 모두 지울까요? 지우면 처음 상태로 돌아가요.','모두 지우기')))return;MEM=[];saveMem();toast('모두 지웠어요');};
+$('#btnCompilePersona').onclick=()=>{
+  const raw=($('#personaSeedInput').value||'').trim();
+  if(!raw){toast('학습할 페르소나 설정을 적어 주세요');return;}
+  setPersonaSeedText(raw);
+  const compiled=compilePersonaSeedToLearnedItems(raw);
+  MEM=compiled.map((t,i)=>({id:'learn_'+i+'_'+Date.now(),text:t,at:Date.now()+i}));
+  saveMem();warmupKV();
+  toast(`설정을 분석하여 ${compiled.length}가지 핵심 지식으로 학습했어요`);
+};
+$('#btnRestoreWrioSeed').onclick=()=>{
+  setPersonaSeedText(DEFAULT_WRIO_SEED);
+  $('#personaSeedInput').value=DEFAULT_WRIO_SEED;
+  EVO={score:35,lastDelta:0,charName:'라이오슬리',userName:'사용자',petName:'',stage:1};saveEvo();
+  const compiled=compilePersonaSeedToLearnedItems(DEFAULT_WRIO_SEED);
+  MEM=compiled.map((t,i)=>({id:'learn_'+i+'_'+Date.now(),text:t,at:Date.now()+i}));
+  saveMem();warmupKV();
+  toast('라이오슬리 기본 예시로 복원하고 학습을 완료했어요');
+};
+$('#evoResetBtn').onclick=()=>{
+  EVO.score=35;EVO.lastDelta=0;EVO.petName='';EVO.stage=1;saveEvo();
+  MEM=MEM.filter(m=>!/^\[상호작용 진화\]/.test(m.text));saveMem();
+  toast('호감도(35%)와 스탠스 진화를 초기 상태로 되돌렸어요');
+};
+$('#memClear').onclick=async()=>{if(!(await ask('학습된 페르소나와 진화 내역을 모두 지울까요?','모두 지우기')))return;MEM=[];saveMem();toast('모두 지웠어요');};
 function openSettings(){
   renderModelOpts();renderMem();
   $('#sJina').value=S.jinaKey;$('#sTemp').value=S.temp;$('#sMax').value=S.maxTokens;$('#sRep').value=S.rep;$('#sCtx').value=String(S.ctx);
