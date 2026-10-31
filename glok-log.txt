@@ -1,0 +1,35 @@
+--------- beginning of main
+10-31 07:05:55.303  4732  4933 I GlokEngine: engine ready, threads=4
+10-31 07:05:55.548  4732  4732 I GlokJS  : GLOK_SELFTEST start {"notif":true,"battery":true,"notifBlocked":false,"ready":true,"keep":false} {"version":"1.0.12","debug":true,"sdk":34,"abi":"x86_64","device":"Google sdk_gphone64_x86_64"}
+10-31 07:05:55.549  4732  4732 I GlokJS  : GLOK_SELFTEST popup false
+10-31 07:05:55.886  4732  4956 W llama   : load: special_eos_id is not in special_eog_ids - the tokenizer config may be incorrect
+10-31 07:05:59.715  4732  4956 I glok    : EXAONE 4 chat template: using the copy without continue (keeps the system message)
+10-31 07:05:59.716  4732  4956 I glok    : loaded /data/user/0/com.glok.app/files/models/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf ctx=2560 threads=4/4 in 4406 ms
+10-31 07:06:00.677  4732  4732 I GlokJS  : GLOK_SELFTEST loaded "EXAONE 1.2B" 5.1s {"loaded":"Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","threads":4,"info":{"model":"exaone4 1.2B Q4_K - Medium","size":808230016,"params":1279391520,"ctx":2560,"threads":4,"threads_batch":4,"path":"\/data\/user\/0\/com.glok.app\/files\/models\/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","devices":"CPU","system":"CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | F16C = 1 | REPACK = 1 | "}}
+10-31 07:06:04.111  4732  4732 I GlokJS  : GLOK_SELFTEST sent
+10-31 07:06:25.009  4732  4956 I glok    : chat slot=0 prompt=414 cache=0 gen=1 stop=length 24064+1 ms
+10-31 07:06:30.188  4732  4956 E llama   : graph_compute: ggml_backend_sched_graph_compute_async failed with error 1
+10-31 07:06:30.188  4732  4956 E llama   : process_ubatch: failed to compute graph, compute status: 1
+10-31 07:06:30.188  4732  4956 W llama   : decode: removing memory module entries for seq_id = 0, pos = [487, +inf)
+10-31 07:06:30.188  4732  4956 I glok    : chat slot=0 prompt=471 cache=406 gen=17 stop=abort 3087+2038 ms
+10-31 07:06:30.328  4732  4732 I GlokJS  : GLOK_SELFTEST reply 26.2s hidden=true "오늘은 친구 일만 처리했어. 기분 좋게 쉬는 중이야."
+10-31 07:06:30.328  4732  4732 I GlokJS  : GLOK_SELFTEST speed {"read":21.059664961368934,"write":7.839294463498286,"at":1793430390222}
+10-31 07:06:42.216  4732  4732 I GlokJS  : GLOK_SELFTEST sent2
+10-31 07:07:07.065  4732  4956 I glok    : chat slot=1 prompt=603 cache=0 gen=16 stop=eos 20778+4018 ms
+10-31 07:07:07.127  4732  4732 I GlokJS  : GLOK_SELFTEST reply2 24.9s hidden=true "주말엔 우리 같이 영화 보러 갈 거야. 어떤 영화 생각해?"
+10-31 07:07:41.868  4732  4732 I GlokJS  : GLOK_SELFTEST kept page=same model=ready {"notif":true,"battery":true,"notifBlocked":false,"ready":true,"keep":true} {"loaded":"Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","threads":4,"info":{"model":"exaone4 1.2B Q4_K - Medium","size":808230016,"params":1279391520,"ctx":2560,"threads":4,"threads_batch":4,"path":"\/data\/user\/0\/com.glok.app\/files\/models\/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","devices":"CPU","system":"CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | F16C = 1 | REPACK = 1 | "}}
+10-31 07:07:53.149  6858  6858 I GlokService: restarted by Android, restoring the model
+10-31 07:07:53.170  6858  6858 I GlokEngine: engine ready, threads=4
+10-31 07:07:53.171  6858  6858 I GlokEngine: restoring Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
+10-31 07:07:53.305  6858  6877 W llama   : load: special_eos_id is not in special_eog_ids - the tokenizer config may be incorrect
+10-31 07:07:53.561  6858  6877 I glok    : EXAONE 4 chat template: using the copy without continue (keeps the system message)
+10-31 07:07:53.561  6858  6877 I glok    : loaded /data/user/0/com.glok.app/files/models/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf ctx=2560 threads=4/4 in 388 ms
+10-31 07:07:59.582  6858  6877 I GlokEngine: model already loaded: Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf
+10-31 07:08:02.875  6858  6858 I GlokJS  : GLOK_SELFTEST restored 0.2s {"notif":true,"battery":true,"notifBlocked":false,"ready":true,"keep":true} {"loaded":"Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","threads":4,"info":{"model":"exaone4 1.2B Q4_K - Medium","size":808230016,"params":1279391520,"ctx":2560,"threads":4,"threads_batch":4,"path":"\/data\/user\/0\/com.glok.app\/files\/models\/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","devices":"CPU","system":"CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | F16C = 1 | REPACK = 1 | "}}
+10-31 07:08:02.875  6858  6858 I GlokJS  : GLOK_SELFTEST sent4
+10-31 07:08:19.044  6858  6877 I glok    : chat slot=0 prompt=418 cache=0 gen=1 stop=length 19202+1 ms
+10-31 07:08:25.871  6858  6877 E llama   : graph_compute: ggml_backend_sched_graph_compute_async failed with error 1
+10-31 07:08:25.871  6858  6877 E llama   : process_ubatch: failed to compute graph, compute status: 1
+10-31 07:08:25.871  6858  6877 W llama   : decode: removing memory module entries for seq_id = 0, pos = [483, +inf)
+10-31 07:08:25.871  6858  6877 I glok    : chat slot=0 prompt=467 cache=221 gen=17 stop=abort 5737+1046 ms
+10-31 07:08:26.155  6858  6858 I GlokJS  : GLOK_SELFTEST reply4 25.1s hidden=true "오늘은 친구 일 좀 처리했어. 저녁에 함께 저녁 먹을래?"

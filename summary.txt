@@ -1,0 +1,29 @@
+model loaded
+app sent to the background while writing
+reply finished in the background
+chat notification posted
+screen off, Doze forced
+reply finished with the screen off
+idle in the background: the app keeps running for the model
+status bar shows 모델 상시 준비 중
+survived Android's background clean-up (pid 4732)
+screen closed and opened again: same page, model ready
+model not loaded again (loads: 1)
+process 4732 killed (as Android does when memory runs out)
+service restarted and loaded the model by itself after 3s
+restored app runs in the foreground service again
+opened after the restore: model ready in 0.2s
+answered after the restore
+opening the app did not load the model again
+10-31 07:05:55.548  4732  4732 I GlokJS  : GLOK_SELFTEST start {"notif":true,"battery":true,"notifBlocked":false,"ready":true,"keep":false} {"version":"1.0.12","debug":true,"sdk":34,"abi":"x86_64","device":"Google sdk_gphone64_x86_64"}
+10-31 07:05:55.549  4732  4732 I GlokJS  : GLOK_SELFTEST popup false
+10-31 07:06:00.677  4732  4732 I GlokJS  : GLOK_SELFTEST loaded "EXAONE 1.2B" 5.1s {"loaded":"Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","threads":4,"info":{"model":"exaone4 1.2B Q4_K - Medium","size":808230016,"params":1279391520,"ctx":2560,"threads":4,"threads_batch":4,"path":"\/data\/user\/0\/com.glok.app\/files\/models\/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","devices":"CPU","system":"CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | F16C = 1 | REPACK = 1 | "}}
+10-31 07:06:04.111  4732  4732 I GlokJS  : GLOK_SELFTEST sent
+10-31 07:06:30.328  4732  4732 I GlokJS  : GLOK_SELFTEST reply 26.2s hidden=true "오늘은 친구 일만 처리했어. 기분 좋게 쉬는 중이야."
+10-31 07:06:30.328  4732  4732 I GlokJS  : GLOK_SELFTEST speed {"read":21.059664961368934,"write":7.839294463498286,"at":1793430390222}
+10-31 07:06:42.216  4732  4732 I GlokJS  : GLOK_SELFTEST sent2
+10-31 07:07:07.127  4732  4732 I GlokJS  : GLOK_SELFTEST reply2 24.9s hidden=true "주말엔 우리 같이 영화 보러 갈 거야. 어떤 영화 생각해?"
+10-31 07:07:41.868  4732  4732 I GlokJS  : GLOK_SELFTEST kept page=same model=ready {"notif":true,"battery":true,"notifBlocked":false,"ready":true,"keep":true} {"loaded":"Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","threads":4,"info":{"model":"exaone4 1.2B Q4_K - Medium","size":808230016,"params":1279391520,"ctx":2560,"threads":4,"threads_batch":4,"path":"\/data\/user\/0\/com.glok.app\/files\/models\/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","devices":"CPU","system":"CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | F16C = 1 | REPACK = 1 | "}}
+10-31 07:08:02.875  6858  6858 I GlokJS  : GLOK_SELFTEST restored 0.2s {"notif":true,"battery":true,"notifBlocked":false,"ready":true,"keep":true} {"loaded":"Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","threads":4,"info":{"model":"exaone4 1.2B Q4_K - Medium","size":808230016,"params":1279391520,"ctx":2560,"threads":4,"threads_batch":4,"path":"\/data\/user\/0\/com.glok.app\/files\/models\/Huihui-EXAONE-4.0-1.2B-abliterated.Q4_K_M.gguf","devices":"CPU","system":"CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | F16C = 1 | REPACK = 1 | "}}
+10-31 07:08:02.875  6858  6858 I GlokJS  : GLOK_SELFTEST sent4
+10-31 07:08:26.155  6858  6858 I GlokJS  : GLOK_SELFTEST reply4 25.1s hidden=true "오늘은 친구 일 좀 처리했어. 저녁에 함께 저녁 먹을래?"
